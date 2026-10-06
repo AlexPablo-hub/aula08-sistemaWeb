@@ -25,3 +25,13 @@ export type LoginInput = {
   email: string
   password: string
 }
+
+/** Resposta de GET /api/auth/google: o client ID público do Google (a rota retorna 404 se não configurado). */
+export type GoogleConfig = {
+  clientId: string
+}
+
+/** Corpo de POST /api/auth/google: o ID token que o Google Identity Services entrega ao navegador. */
+export type GoogleLoginInput = {
+  credential: string
+}

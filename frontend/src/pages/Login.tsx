@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { AuthLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,6 +90,7 @@ export default function Login() {
           {isSubmitting ? 'Entrando...' : 'Entrar'}
         </Button>
       </form>
+      <GoogleSignInButton text="signin_with" />
     </AuthLayout>
   )
 }

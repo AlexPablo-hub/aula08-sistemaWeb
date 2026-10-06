@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { AuthLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,6 +115,7 @@ export default function Register() {
           {isSubmitting ? 'Criando conta...' : 'Criar conta'}
         </Button>
       </form>
+      <GoogleSignInButton text="signup_with" />
     </AuthLayout>
   )
 }

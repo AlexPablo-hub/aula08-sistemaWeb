@@ -110,6 +110,7 @@ Gradientes; roxo ou azul-índigo; glassmorphism e desfoque; brilhos; sombras; he
 - `PageContainer`: largura máxima e margens padrão.
 - `PageHeader`: `title`, `description` opcional e `action` opcional, com linha fina embaixo.
 - `AuthLayout`: telas `/entrar` e `/cadastrar`. Duas colunas: à esquerda o painel de marca (fundo tinta, "Ditado" em serifada e uma frase curta); à direita o formulário, centralizado na vertical, com largura máxima `max-w-sm`. Em tela estreita vira uma coluna e o painel se reduz a um cabeçalho com a marca. Props: `title`, `description` opcional, `children` (o formulário) e `footer` (link alternativo, por exemplo "Não tem conta? Cadastrar").
+- `GoogleSignInButton` (`components/auth`): separador "ou" (linha fina de 1px entre duas linhas) e o botão do Google Identity Services, renderizado pelo próprio Google (`theme` outline, `shape` rectangular, `locale` pt-BR). Fica abaixo do formulário em `/entrar` e `/cadastrar` e só aparece quando `GET /api/auth/google` informa o client ID. Erros usam o mesmo bloco `role="alert"` dos formulários.
 
 Se faltar um componente, adicione com `npx shadcn@latest add <nome>` dentro de `frontend/` e ajuste-o aos tokens (sem sombras, sem `dark:`, raios pequenos, foco em contorno) antes de usar.
 
