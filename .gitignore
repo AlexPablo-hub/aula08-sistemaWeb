@@ -19,3 +19,13 @@ client_secret*.json
 Thumbs.db
 .vscode/
 .idea/
+
+# Áudios de teste: ficam fora do repositório
+*.mp3
+*.mp4
+*.m4a
+*.wav
+*.ogg
+*.flac
+*.webm
+*.mpeg
