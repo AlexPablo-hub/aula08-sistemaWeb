@@ -1,6 +1,6 @@
 # Ditado — Especificação
 
-Versão: 0.5 (acrescenta a permanência do áudio enviado, guardado num bucket MinIO e reproduzido no histórico; a 0.4 acrescentou a escolha do provedor e do modelo de transcrição no painel do administrador; as diferenças em relação às versões anteriores estão na seção 12)
+Versão: 0.6 (acrescenta a edição do título da transcrição; a 0.5 acrescentou a permanência do áudio enviado, guardado num bucket MinIO e reproduzido no histórico; a 0.4 acrescentou a escolha do provedor e do modelo de transcrição no painel do administrador; as diferenças em relação às versões anteriores estão na seção 12)
 
 ## 1. Visão geral
 
@@ -17,6 +17,7 @@ Dentro do escopo:
 - Login e cadastro com conta Google (botão do Google Identity Services; o navegador obtém um ID token e o backend o valida).
 - Envio de um arquivo de áudio por vez, com escolha de idioma.
 - Histórico pessoal de transcrições: listar, ler e excluir.
+- Editar o título de uma transcrição do próprio histórico. A edição do texto transcrito continua fora do escopo.
 - Área administrativa: listar contas, alterar nome e papel, desativar conta.
 - Administrador inicial criado por configuração na inicialização.
 - Administrador escolhe, no painel, o provedor e o modelo de transcrição (configuração global).
@@ -63,7 +64,8 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 |---|---|---|
 | id | UUID | chave primária |
 | userId | UUID | obrigatório; referencia `users.id`; exclusão de usuário não é prevista |
-| fileName | texto (até 255) | nome original do arquivo enviado |
+| title | texto (até 120), opcional | título dado pelo dono; nulo significa "usar o nome do arquivo" |
+| fileName | texto (até 255) | nome original do arquivo enviado; imutável |
 | language | texto (2 letras) | código ISO 639-1, padrão `pt` |
 | text | texto longo | transcrição retornada pelo provedor |
 | audioKey | texto (até 255), opcional | chave do objeto do áudio no bucket (`audio/{userId}/{id}.{ext}`); nulo quando o áudio não foi guardado; nunca retornado pela API |
@@ -71,7 +73,7 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 | audioSize | inteiro, opcional | tamanho do áudio guardado, em bytes; nulo quando não há áudio |
 | createdAt | data/hora | automático; ordenação do histórico |
 
-Transcrições anteriores à versão 0.5 ficam com `audioKey`, `audioMimeType` e `audioSize` nulos (sem áudio guardado).
+Transcrições anteriores à versão 0.5 ficam com `audioKey`, `audioMimeType` e `audioSize` nulos (sem áudio guardado). Transcrições anteriores à versão 0.6 ficam com `title` nulo.
 
 ### settings
 
@@ -110,6 +112,10 @@ Configuração global da aplicação, uma linha por chave. Hoje só existe a cha
 - **RN23 — Exclusão leva o áudio:** excluir a transcrição apaga a linha e, em seguida, o objeto do bucket, em melhor esforço. Falha ao apagar o objeto não impede a exclusão: fica um aviso no log com a chave do objeto.
 - **RN24 — Falha do armazenamento:** com o armazenamento configurado, erro ou indisponibilidade ao guardar o áudio retorna 502 e nada é gravado (nem linha, nem objeto), como na RN9.
 - **RN25 — Sem armazenamento:** com o armazenamento não configurado, o envio funciona normalmente, sem guardar o áudio (`hasAudio` falso), a aplicação sobe e a rota de áudio retorna 404.
+- **RN26 — Título do dono:** o título é do dono da transcrição e só ele o edita. Transcrição inexistente ou de outro usuário retorna 404 (RN5).
+- **RN27 — Título válido:** o título editado é aparado (trim) e deve ter de 1 a 120 caracteres. Título ausente, em branco ou acima de 120 retorna 400.
+- **RN28 — Título não mexe no resto:** editar o título não altera `fileName`, `text`, `language` nem o áudio.
+- **RN29 — Título efetivo:** o título mostrado é o `title` salvo e, se for nulo, o `fileName`.
 
 ## 6. Contrato da API
 
@@ -145,10 +151,13 @@ O `GET /api/auth/google` existe porque o frontend não tem `.env`: ele descobre 
 | POST | `/api/transcriptions` | sim | 201 transcrição criada | 400 (arquivo ausente, tipo não aceito, idioma inválido), 401, 413 (acima de 25 MB), 502 (falha do provedor de transcrição ou do armazenamento do áudio) |
 | GET | `/api/transcriptions/:id` | sim | 200 transcrição | 401, 404 (inexistente ou de outro usuário) |
 | GET | `/api/transcriptions/:id/audio` | sim | 200 com o arquivo de áudio (`Content-Type` do áudio original e `Content-Length`) | 401, 404 (inexistente, de outro usuário ou sem áudio guardado) |
+| PATCH | `/api/transcriptions/:id` | sim | 200 transcrição atualizada | 400 (título ausente, em branco ou acima de 120 caracteres, ou campo extra), 401, 404 (inexistente, de outro usuário ou id malformado) |
 | DELETE | `/api/transcriptions/:id` | sim | 204 sem corpo | 401, 404 (inexistente ou de outro usuário) |
 
 Envio (`multipart/form-data`): campo `file` (obrigatório) e campo `language` (opcional, padrão `pt`).
-Objeto de transcrição: `{ "id", "fileName", "language", "text", "hasAudio", "createdAt" }`. `hasAudio` é booleano: verdadeiro quando o áudio ficou guardado. O objeto nunca traz `userId` nem a chave do objeto no bucket.
+Objeto de transcrição: `{ "id", "title", "fileName", "language", "text", "hasAudio", "createdAt" }`. `title` é sempre uma string: o título efetivo (RN29), isto é, o `title` salvo ou, se for nulo, o `fileName`. `hasAudio` é booleano: verdadeiro quando o áudio ficou guardado. O objeto nunca traz `userId` nem a chave do objeto no bucket.
+
+Corpo de PATCH: `{ "title": string }`, obrigatório. Campo extra (`text`, `fileName`, `language` ou qualquer outro) retorna 400, e corpo vazio também. A resposta é a transcrição atualizada, com `fileName`, `text`, `language` e `hasAudio` inalterados.
 
 `GET /api/transcriptions/:id/audio` devolve os bytes do áudio pelo backend, que confere o dono; o navegador nunca recebe o endereço do bucket nem credenciais. A resposta traz `Cache-Control: private, no-store`. Os erros têm o formato padrão (abaixo).
 
@@ -193,7 +202,7 @@ Todas as respostas de erro têm a forma `{ "statusCode", "message", "error" }`.
 | `/` | público | Apresentação do Ditado, botões Entrar e Cadastrar |
 | `/cadastrar` | público | Formulário de nome, e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
 | `/entrar` | público | Formulário de e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
-| `/app` | usuário logado | Envio de áudio com escolha de idioma; histórico com ver, ouvir e excluir |
+| `/app` | usuário logado | Envio de áudio com escolha de idioma; histórico com ver, ouvir, editar o título e excluir |
 | `/app/admin` | papel `admin` | Seção "Contas": lista de contas, com alteração de nome, papel e status ativo. Seção "Transcrição": escolha do provedor e do modelo de transcrição |
 
 Regras de tela:
@@ -203,6 +212,7 @@ Regras de tela:
 - Resposta 401 de qualquer chamada limpa a sessão e leva a `/entrar`.
 - Estados de carregamento e de erro aparecem em toda chamada à API.
 - Envio de arquivo mostra o nome do arquivo e recusa, antes do envio, tipo ou tamanho inválidos.
+- O histórico e o diálogo da transcrição permitem editar o título (ação "Editar título"); o `fileName` continua visível como dado secundário.
 - O histórico e o diálogo da transcrição mostram o botão "Ouvir" quando `hasAudio` é verdadeiro; caso contrário mostram "Áudio não guardado".
 - Rota desconhecida mostra uma página de "não encontrada" com link para `/`.
 - A aparência segue `docs/DESIGN.md` (tokens de cor, fontes e componentes shadcn/ui).
@@ -372,6 +382,18 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
   - Transcrições antigas continuam listáveis (`hasAudio` falso).
   - Nenhuma resposta contém `audioKey`, `userId`, endereço do bucket ou credenciais.
 
+### Etapa 14 — Edição do título
+
+- Entrega: campo `title` em `transcriptions`; `title` no objeto de transcrição; `PATCH /api/transcriptions/:id`; ação "Editar título" no histórico e no diálogo.
+- Aceite:
+  - O dono edita o título (200), e a listagem e a leitura refletem o novo título.
+  - Outro usuário recebe 404 e o título original permanece; id inexistente ou malformado, 404.
+  - Título em branco, acima de 120 caracteres ou ausente retorna 400; campo extra (`text`, `fileName`, `language`) retorna 400; corpo vazio retorna 400.
+  - Sem token, 401.
+  - `fileName`, `text`, `language` e o áudio ficam inalterados.
+  - Transcrições antigas (sem título salvo) listam `title` igual ao `fileName`.
+  - Nenhuma resposta contém `userId` nem `audioKey`.
+
 ## 11. Verificação final
 
 - Todas as etapas com critérios de aceite cumpridos e registrados em commits separados.
@@ -380,7 +402,7 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
 
 ## 12. Divergências em relação às versões anteriores
 
-Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3, 0.4 e 0.5, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as sobre a configuração de transcrição, da 0.4; as sobre o áudio guardado, da 0.5; as demais, da 0.2.
+Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3, 0.4, 0.5 e 0.6, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as sobre a configuração de transcrição, da 0.4; as sobre o áudio guardado, da 0.5; as sobre o título, da 0.6; as demais, da 0.2.
 
 | Assunto | Versão 0.1 | Vale agora | Motivo |
 |---|---|---|---|
@@ -402,6 +424,7 @@ Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3, 
 | Áudio enviado | descartado depois da transcrição; só o texto era gravado | guardado num bucket MinIO enquanto a transcrição existir; `hasAudio` no objeto de transcrição (versão 0.5) | Pedido do grupo: ouvir de novo o áudio no histórico. Sem MinIO configurado, o envio continua funcionando sem guardar o áudio. |
 | Armazenamento | não existia | MinIO (compatível com S3), bucket privado, variáveis `MINIO_*` só no backend | O áudio é dado pessoal; o bucket não é público e as credenciais não saem do servidor. |
 | Reprodução do áudio | não existia | `GET /api/transcriptions/:id/audio`, servida pelo backend com checagem de dono | O navegador nunca recebe o endereço do bucket nem credenciais; transcrição de outro usuário continua 404 (RN5). |
+| Título da transcrição | o histórico mostrava o `fileName` como título, sem edição | campo próprio `title` (opcional), editável pelo dono por `PATCH /api/transcriptions/:id`; o objeto de transcrição ganhou `title`, sempre string (o `title` salvo ou, se nulo, o `fileName`) (versão 0.6) | Pedido do grupo. Premissa adotada: o título é do dono e editável, e o `fileName` continua sendo o nome original, imutável (o frontend o usa para derivar o tipo de áudio). O texto transcrito continua não editável. A coluna `title` é nova e nula nas linhas antigas; `synchronize` só a acrescenta, sem perda de dados. |
 
 Pontos que a especificação continua sem decidir:
 
