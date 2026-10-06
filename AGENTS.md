@@ -4,7 +4,7 @@ Este arquivo descreve como trabalhar neste repositório. A especificação do pr
 
 ## Pilha
 
-- Frontend: React + Vite + TypeScript, react-router-dom, axios, TanStack Query (dados do servidor), Zustand (sessão), react-hook-form + zod, Tailwind CSS v4, lucide-react.
+- Frontend: React + Vite + TypeScript, react-router-dom, axios, TanStack Query (dados do servidor), Zustand (sessão), react-hook-form + zod, Tailwind CSS v4, shadcn/ui, lucide-react.
 - Backend: NestJS + TypeScript, TypeORM + PostgreSQL 17, @nestjs/jwt + passport-jwt, bcryptjs, class-validator + class-transformer, multer.
 - Banco local: `docker compose up -d` na raiz (somente PostgreSQL).
 - Plataforma de desenvolvimento: Windows com PowerShell. Não use comandos Bash nem scripts `.sh`.
@@ -28,6 +28,7 @@ Nunca rode `npm install` a partir da raiz: cada projeto tem o seu `package.json`
 
 ```
 docs/ESPECIFICACAO.md   produto: o que construir (fonte da verdade)
+docs/DESIGN.md          sistema de design do frontend
 AGENTS.md               como trabalhar
 .env.example            nomes das variáveis, sem valores
 docker-compose.yml      PostgreSQL local
@@ -63,6 +64,7 @@ Frontend:
 - Resposta 401 é tratada pelo interceptador de resposta, que limpa a sessão.
 - Dados do servidor ficam no TanStack Query. Sessão (usuário e token) fica no Zustand. Não duplique um no outro.
 - O frontend não tem `.env` e não guarda segredo.
+- Estilo: use somente os tokens e componentes de docs/DESIGN.md; sem cores, fontes ou sombras soltas.
 
 Tipos:
 
