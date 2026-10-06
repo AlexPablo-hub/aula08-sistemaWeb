@@ -22,8 +22,13 @@ export class User {
   @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 
-  @Column({ type: 'varchar' })
-  passwordHash: string;
+  // Nulo para conta criada só pelo Google.
+  @Column({ type: 'varchar', nullable: true })
+  passwordHash: string | null;
+
+  // Identificador (sub) da conta Google; nunca retornado pela API.
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
+  googleId: string | null;
 
   @Column({ type: 'enum', enum: Role, default: Role.User })
   role: Role;

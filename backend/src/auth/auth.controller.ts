@@ -1,8 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -10,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { GoogleAuthDto, GoogleClientIdDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -37,5 +47,36 @@ export class AuthController {
   })
   login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.auth.login(dto);
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Entra ou cadastra com um ID token do Google',
+    description:
+      'Papel user para conta nova; conta existente com o mesmo e-mail verificado é vinculada.',
+  })
+  @ApiOkResponse({ type: AuthResponseDto })
+  @ApiBadRequestResponse({ description: 'Corpo inválido.' })
+  @ApiUnauthorizedResponse({
+    description:
+      'Token inválido, e-mail não verificado, conta desativada, googleId diferente ou login com Google não configurado.',
+  })
+  google(@Body() dto: GoogleAuthDto): Promise<AuthResponseDto> {
+    return this.auth.loginWithGoogle(dto);
+  }
+
+  @Get('google')
+  @ApiOperation({
+    summary: 'Informa o client ID público do Google, usado pelo botão de login',
+  })
+  @ApiOkResponse({ type: GoogleClientIdDto })
+  @ApiNotFoundResponse({ description: 'Login com Google não configurado.' })
+  googleClientId(): GoogleClientIdDto {
+    const clientId = this.auth.getGoogleClientId();
+    if (!clientId) {
+      throw new NotFoundException('Login com Google não configurado.');
+    }
+    return { clientId };
   }
 }

@@ -54,7 +54,7 @@ describe('Administrador inicial', () => {
 
   it('guarda hash bcrypt, não a senha', async () => {
     const admin = await repo.findOneByOrFail({ email: adminEmail });
-    expect(admin.passwordHash.startsWith('$2')).toBe(true);
+    expect(admin.passwordHash?.startsWith('$2')).toBe(true);
     expect(admin.passwordHash).not.toBe(adminPassword);
   });
 

@@ -42,6 +42,31 @@ export class UsersService implements OnApplicationBootstrap {
     return this.users.findOne({ where: { id } });
   }
 
+  findByGoogleId(googleId: string): Promise<User | null> {
+    return this.users.findOne({ where: { googleId } });
+  }
+
+  // Conta criada pelo Google: papel sempre "user" e sem senha (RN11).
+  createFromGoogle(input: {
+    name: string;
+    email: string;
+    googleId: string;
+  }): Promise<User> {
+    const user = this.users.create({
+      name: input.name,
+      email: input.email.trim().toLowerCase(),
+      passwordHash: null,
+      googleId: input.googleId,
+      role: Role.User,
+    });
+    return this.users.save(user);
+  }
+
+  linkGoogleId(user: User, googleId: string): Promise<User> {
+    user.googleId = googleId;
+    return this.users.save(user);
+  }
+
   async findAll(): Promise<UserResponseDto[]> {
     const list = await this.users.find({
       order: { createdAt: 'ASC', id: 'ASC' },
@@ -85,6 +110,7 @@ export class UsersService implements OnApplicationBootstrap {
       name: input.name,
       email: input.email.trim().toLowerCase(),
       passwordHash,
+      googleId: null,
       role: input.role ?? Role.User,
     });
     return this.users.save(user);

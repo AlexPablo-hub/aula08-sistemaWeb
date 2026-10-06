@@ -5,6 +5,10 @@ import { PassportModule } from '@nestjs/passport';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import {
+  GoogleOAuthTokenVerifier,
+  GoogleTokenVerifier,
+} from './google-token-verifier';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -24,7 +28,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    { provide: GoogleTokenVerifier, useClass: GoogleOAuthTokenVerifier },
+  ],
   exports: [PassportModule],
 })
 export class AuthModule {}
