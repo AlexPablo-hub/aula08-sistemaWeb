@@ -6,7 +6,7 @@ Versão: 0.1 (rascunho inicial, a ser revisado pelo grupo)
 
 O Ditado é uma aplicação web de transcrição de áudio. O visitante conhece o produto numa página inicial, cria uma conta e, na área interna, envia um arquivo de áudio e recebe o texto transcrito. As transcrições ficam salvas num histórico pessoal. Um administrador gerencia as contas.
 
-A transcrição é feita pelo modelo Whisper, na API da Groq. A chave da Groq fica somente no backend.
+A transcrição é feita pelo modelo Whisper, na API da Groq ou do OpenRouter (provedor escolhido por configuração; ver seção 8). A chave do provedor fica somente no backend.
 
 ## 2. Escopo
 
@@ -73,7 +73,7 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 - **RN6 — Áudio aceito:** formatos `mp3`, `m4a`, `wav`, `ogg`, `webm`, `flac`, `mp4` e `mpeg`. Outro tipo retorna 400.
 - **RN7 — Tamanho:** até 25 MB. Acima disso, retorna 413.
 - **RN8 — Idioma:** campo `language` opcional no envio, com valor padrão `pt`. Código inválido retorna 400.
-- **RN9 — Falha externa:** erro ou indisponibilidade da Groq retorna 502. Nenhuma transcrição é gravada nesse caso.
+- **RN9 — Falha externa:** erro, indisponibilidade ou falta de configuração do provedor de transcrição (Groq ou OpenRouter) retorna 502. Nenhuma transcrição é gravada nesse caso.
 - **RN10 — Ordenação:** o histórico vem da transcrição mais recente para a mais antiga.
 
 ## 6. Contrato da API
@@ -102,7 +102,7 @@ Objeto `user` na resposta: `{ "id", "name", "email", "role", "active" }`, sem `p
 | Método | Caminho | Protegida | Sucesso | Erros |
 |---|---|---|---|---|
 | GET | `/api/transcriptions` | sim | 200 lista de transcrições do usuário | 401 |
-| POST | `/api/transcriptions` | sim | 201 transcrição criada | 400 (arquivo ausente, tipo não aceito, idioma inválido), 401, 413 (acima de 25 MB), 502 (falha da Groq) |
+| POST | `/api/transcriptions` | sim | 201 transcrição criada | 400 (arquivo ausente, tipo não aceito, idioma inválido), 401, 413 (acima de 25 MB), 502 (falha do provedor de transcrição) |
 | GET | `/api/transcriptions/:id` | sim | 200 transcrição | 401, 404 (inexistente ou de outro usuário) |
 | DELETE | `/api/transcriptions/:id` | sim | 204 sem corpo | 401, 404 (inexistente ou de outro usuário) |
 
@@ -147,6 +147,9 @@ Os nomes das variáveis estão em `.env.example`. Os valores reais ficam em `bac
 - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: na inicialização, se não existir nenhum administrador com esse e-mail, a aplicação cria um. Se já existir, não altera nada.
 - `GROQ_API_KEY`: chave pessoal da Groq. Nunca vai para o frontend nem para o repositório.
 - `GROQ_MODEL`: identificador do modelo de transcrição (padrão `whisper-large-v3-turbo`).
+- `TRANSCRIPTION_PROVIDER`: `groq` ou `openrouter`. Se vazio, usa a Groq quando `GROQ_API_KEY` estiver preenchida e, senão, o OpenRouter quando `OPENROUTER_API_KEY` estiver preenchida. Sem chave do provedor escolhido, a aplicação sobe e o envio de áudio retorna 502.
+- `OPENROUTER_API_KEY`: chave pessoal do OpenRouter (alternativa à Groq). Nunca vai para o frontend nem para o repositório.
+- `OPENROUTER_MODEL`: modelo de fala para texto no OpenRouter (padrão `openai/whisper-large-v3-turbo`).
 - `JWT_SECRET` e `JWT_EXPIRES_IN`: assinatura e validade do token (padrão `1d`).
 - Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`.
 
@@ -159,7 +162,7 @@ O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativ
 - Validação: corpo das requisições validado por DTO com lista de campos permitidos. Campo não declarado retorna 400.
 - Respostas: a entidade do banco nunca é devolvida diretamente; a resposta é montada a partir de um objeto de saída que omite `passwordHash`.
 - Banco: a porta 5432 publica-se somente em `127.0.0.1`.
-- Logs: a chave da Groq e o token nunca aparecem em log.
+- Logs: as chaves dos provedores (Groq, OpenRouter) e o token nunca aparecem em log.
 - Esquema do banco: `synchronize: true` durante o desenvolvimento. Migrações versionadas ficam para a Aula 08.
 
 ## 10. Plano de etapas
