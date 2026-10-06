@@ -1,0 +1,17 @@
+# PostgreSQL local para desenvolvimento.
+# Os valores vêm de backend/.env (não versionado). Suba com:  docker compose --env-file backend/.env up -d
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ditado-db:/var/lib/postgresql
+
+volumes:
+  ditado-db:
