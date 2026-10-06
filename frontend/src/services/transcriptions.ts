@@ -1,4 +1,5 @@
 import { api } from './api'
+import { audioMimeFromFileName } from '@/lib/audio'
 import type { Transcription } from '@/types'
 
 export async function list(): Promise<Transcription[]> {
@@ -22,4 +23,14 @@ export async function create(file: File, language: string): Promise<Transcriptio
 
 export async function remove(id: string): Promise<void> {
   await api.delete(`/transcriptions/${id}`)
+}
+
+/** Baixa o áudio guardado. Passa por `api` para levar o token; o <audio src> não envia o cabeçalho. */
+export async function getAudio(id: string, fileName: string): Promise<Blob> {
+  const { data } = await api.get<Blob>(`/transcriptions/${id}/audio`, { responseType: 'blob' })
+  const type = data.type
+  if (type && type !== 'application/octet-stream') return data
+  // Tipo ausente ou genérico: deduz pela extensão para o player reconhecer o formato.
+  const guessed = audioMimeFromFileName(fileName)
+  return guessed ? new Blob([data], { type: guessed }) : data
 }

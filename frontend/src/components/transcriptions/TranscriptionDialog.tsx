@@ -13,6 +13,7 @@ import { languageLabel } from '@/lib/audio'
 import { describeTranscriptionError } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { get } from '@/services/transcriptions'
+import { AudioPlayer } from './AudioPlayer'
 import { TranscriptionText } from './TranscriptionText'
 
 type TranscriptionDialogProps = {
@@ -68,6 +69,9 @@ export function TranscriptionDialog({ id, onClose }: TranscriptionDialogProps) {
               Tentar de novo
             </Button>
           </div>
+        ) : null}
+        {item ? (
+          <AudioPlayer id={item.id} fileName={item.fileName} hasAudio={item.hasAudio} />
         ) : null}
         {item ? <TranscriptionText text={item.text} /> : null}
       </DialogContent>

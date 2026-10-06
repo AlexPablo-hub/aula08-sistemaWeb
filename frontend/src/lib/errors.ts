@@ -54,6 +54,22 @@ export function describeTranscriptionError(error: unknown): string {
   return 'Algo deu errado. Tente de novo em instantes.'
 }
 
+/** Converte um erro de chamada ao áudio de uma transcrição em texto claro para o usuário. */
+export function describeAudioError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return 'Não foi possível falar com o servidor. Verifique a conexão e tente de novo.'
+    }
+    switch (error.response.status) {
+      case 401:
+        return 'Sua sessão expirou. Entre de novo.'
+      case 404:
+        return 'Áudio não encontrado.'
+    }
+  }
+  return 'Não foi possível carregar o áudio. Tente de novo em instantes.'
+}
+
 /** Converte um erro de chamada à configuração de transcrição em texto claro para o usuário. */
 export function describeSettingsError(error: unknown): string {
   if (axios.isAxiosError(error)) {

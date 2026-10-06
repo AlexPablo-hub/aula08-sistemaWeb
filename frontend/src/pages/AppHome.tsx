@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AppShell, PageContainer, PageHeader, UserArea, useAppNavigation } from '@/components/layout'
+import { AudioPlayer } from '@/components/transcriptions/AudioPlayer'
 import { TranscriptionHistory } from '@/components/transcriptions/TranscriptionHistory'
 import { TranscriptionText } from '@/components/transcriptions/TranscriptionText'
 import { UploadForm } from '@/components/transcriptions/UploadForm'
@@ -38,6 +39,9 @@ export default function AppHome() {
                   <Badge variant="outline">{languageLabel(latest.language)}</Badge>
                   <span>{formatDateTime(latest.createdAt)}</span>
                 </p>
+                <div className="mb-3">
+                  <AudioPlayer id={latest.id} fileName={latest.fileName} hasAudio={latest.hasAudio} />
+                </div>
                 <TranscriptionText text={latest.text} />
               </section>
             ) : null}

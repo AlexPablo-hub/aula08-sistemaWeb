@@ -57,3 +57,19 @@ export function validateAudio(file: { name: string; size: number }): string | nu
   }
   return null
 }
+
+const AUDIO_MIME: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  webm: 'audio/webm',
+  flac: 'audio/flac',
+  mp4: 'audio/mp4',
+  mpeg: 'audio/mpeg',
+}
+
+/** Tipo de áudio deduzido da extensão do nome; vazio se a extensão não é conhecida. */
+export function audioMimeFromFileName(fileName: string): string {
+  return AUDIO_MIME[getExtension(fileName)] ?? ''
+}

@@ -5,5 +5,6 @@ export type Transcription = {
   fileName: string
   language: string
   text: string
+  hasAudio: boolean
   createdAt: string
 }

@@ -19,6 +19,7 @@ import { describeTranscriptionError } from '@/lib/errors'
 import { excerpt, formatDateTime } from '@/lib/format'
 import { list, remove } from '@/services/transcriptions'
 import type { Transcription } from '@/types'
+import { AudioPlayer } from './AudioPlayer'
 import { TranscriptionDialog } from './TranscriptionDialog'
 
 const LIST_KEY = ['transcriptions']
@@ -114,6 +115,9 @@ export function TranscriptionHistory({ onDeleted }: TranscriptionHistoryProps) {
                   <span>{formatDateTime(item.createdAt)}</span>
                 </p>
                 <p className="line-clamp-2 text-sm">{excerpt(item.text)}</p>
+                <div className="pt-1">
+                  <AudioPlayer id={item.id} fileName={item.fileName} hasAudio={item.hasAudio} />
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setViewId(item.id)}>
