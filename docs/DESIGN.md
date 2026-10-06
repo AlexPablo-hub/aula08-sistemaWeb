@@ -102,7 +102,7 @@ Gradientes; roxo ou azul-índigo; glassmorphism e desfoque; brilhos; sombras; he
 
 `components/ui` (shadcn, já ajustados ao design; não sobrescreva estilo nas páginas):
 
-`Button` (variantes `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`; tamanhos `sm`, `default`, `lg`, `icon`), `Input`, `Label`, `Textarea`, `Select`, `Switch`, `Card`, `Badge` (`default`, `accent`, `success`, `destructive`, `outline`), `Table`, `Tabs`, `Dialog`, `AlertDialog` (confirmar exclusão), `DropdownMenu`, `Separator`, `Skeleton`, `Toaster` (sonner; chame `toast.success` e `toast.error`).
+`Button` (variantes `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`; tamanhos `sm`, `default`, `lg`, `icon`), `Input`, `Label`, `Textarea`, `Select`, `Switch`, `RadioGroup` (itens quadrados, sem `rounded-full`; agrupe com `fieldset` e `legend`), `Card`, `Badge` (`default`, `accent`, `success`, `destructive`, `outline`), `Table`, `Tabs`, `Dialog`, `AlertDialog` (confirmar exclusão), `DropdownMenu`, `Separator`, `Skeleton`, `Toaster` (sonner; chame `toast.success` e `toast.error`).
 
 `components/layout`:
 
