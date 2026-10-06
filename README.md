@@ -163,8 +163,12 @@ docker compose --env-file backend/.env up -d
 
 ## 12. Divergências conhecidas da especificação
 
-- **Porta do banco 5433, não 5432.** A especificação fala em 5432; este repositório publica `127.0.0.1:5433` porque o serviço do PostgreSQL do Windows ocupa a 5432 na máquina de desenvolvimento. `DATABASE_PORT` no `.env.example` é `5433`.
-- **PostgreSQL 18, não 17.** O `docker-compose.yml` usa `postgres:18-alpine` (a especificação cita a versão 17).
+A especificação (`docs/ESPECIFICACAO.md`, seção 12) registra o que mudou em relação ao rascunho inicial. Os pontos que afetam quem roda o projeto:
+
+- **Porta do banco 5433, não 5432.** O repositório publica `127.0.0.1:5433` porque o serviço do PostgreSQL do Windows ocupa a 5432 na máquina de desenvolvimento. `DATABASE_PORT` no `.env.example` é `5433`.
+- **PostgreSQL 18** (`postgres:18-alpine`).
+- **Banco com `--env-file`.** O compose lê usuário, senha e nome do banco de `backend/.env`.
+- **Groq ou OpenRouter** para a transcrição, escolhidos por `TRANSCRIPTION_PROVIDER`.
 
 ## 13. Declaração de uso de IA
 
@@ -175,6 +179,6 @@ Ferramentas de IA foram usadas no **desenvolvimento** do projeto, conforme a se�
 | 1. Infraestrutura e esqueleto do backend | Claude Code (Anthropic) | [confirmar o modelo usado na Etapa 1] |
 | 2 a 9. Backend (usuários, autenticação, transcrição, histórico, administração), frontend (páginas, envio, histórico, administração) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 
-Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes; o usuário aprovou o plano e revisou o resultado de cada etapa.
+Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
 
 O **Whisper** (via Groq ou OpenRouter) é usado apenas **em tempo de execução**, para transcrever os áudios enviados à aplicação. Ele não é ferramenta de desenvolvimento.

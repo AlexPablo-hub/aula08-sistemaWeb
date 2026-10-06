@@ -7,6 +7,9 @@ dist/
 .env.*
 !.env.example
 
+# Credenciais baixadas do Google Cloud (contêm o client secret)
+client_secret*.json
+
 # Logs, PIDs e volumes locais
 *.log
 *.pid

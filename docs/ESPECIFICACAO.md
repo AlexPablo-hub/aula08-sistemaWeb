@@ -1,6 +1,6 @@
 # Ditado — Especificação
 
-Versão: 0.1 (rascunho inicial, a ser revisado pelo grupo)
+Versão: 0.2 (revisada após a implementação; as diferenças em relação à versão 0.1 estão na seção 12)
 
 ## 1. Visão geral
 
@@ -18,6 +18,7 @@ Dentro do escopo:
 - Histórico pessoal de transcrições: listar, ler e excluir.
 - Área administrativa: listar contas, alterar nome e papel, desativar conta.
 - Administrador inicial criado por configuração na inicialização.
+- Documentação interativa da API (Swagger) em `/docs`, protegida por autenticação Basic. Acrescentada pelo grupo depois da versão 0.1; não faz parte do contrato da API.
 
 Fora do escopo:
 
@@ -118,6 +119,18 @@ Objeto de transcrição: `{ "id", "fileName", "language", "text", "createdAt" }`
 
 Corpo de PATCH: qualquer combinação de `name`, `role` e `active`. Campos fora dessa lista retornam 400.
 
+### Comportamentos definidos na implementação
+
+Pontos que a versão 0.1 deixava em aberto e que a implementação fixou:
+
+- **Identificador malformado:** `:id` que não é um UUID retorna 404, igual a um recurso inexistente (transcrições e usuários).
+- **PATCH vazio:** corpo sem nenhum dos campos `name`, `role` ou `active` retorna 400.
+- **Token de conta desativada:** a guarda de autenticação consulta o usuário a cada requisição. Token de conta desativada ou inexistente retorna 401, e mudança de papel vale na hora, sem esperar o token expirar.
+- **Administrador inicial:** é criado com o nome `Administrador`.
+- **Tipo de áudio (RN6):** a validação confere a extensão do nome do arquivo, em minúsculas, e o tipo MIME declarado.
+- **Falta de chave do provedor:** o envio de áudio retorna 502 com mensagem de serviço não configurado; nada é gravado.
+- **Formatos no OpenRouter:** a documentação do OpenRouter não lista `mp4` e `mpeg`. O backend não converte áudio, então esses formatos podem retornar 502 quando o provedor for o OpenRouter.
+
 ### Códigos de erro
 
 Todas as respostas de erro têm a forma `{ "statusCode", "message", "error" }`.
@@ -139,6 +152,8 @@ Regras de tela:
 - Resposta 401 de qualquer chamada limpa a sessão e leva a `/entrar`.
 - Estados de carregamento e de erro aparecem em toda chamada à API.
 - Envio de arquivo mostra o nome do arquivo e recusa, antes do envio, tipo ou tamanho inválidos.
+- Rota desconhecida mostra uma página de "não encontrada" com link para `/`.
+- A aparência segue `docs/DESIGN.md` (tokens de cor, fontes e componentes shadcn/ui).
 
 ## 8. Configuração
 
@@ -151,7 +166,9 @@ Os nomes das variáveis estão em `.env.example`. Os valores reais ficam em `bac
 - `OPENROUTER_API_KEY`: chave pessoal do OpenRouter (alternativa à Groq). Nunca vai para o frontend nem para o repositório.
 - `OPENROUTER_MODEL`: modelo de fala para texto no OpenRouter (padrão `openai/whisper-large-v3-turbo`).
 - `JWT_SECRET` e `JWT_EXPIRES_IN`: assinatura e validade do token (padrão `1d`).
-- Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`.
+- Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`. O padrão de desenvolvimento de `DATABASE_PORT` é `5433` (seção 12). O `docker-compose.yml` lê essas variáveis de `backend/.env`; por isso o banco sobe com `docker compose --env-file backend/.env up -d`.
+- `DOCS_USER` e `DOCS_PASSWORD`: credenciais Basic do Swagger em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`; troque fora do ambiente local.
+- `PORT`: porta do backend (padrão `3000`).
 
 O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativo `/api`.
 
@@ -161,7 +178,7 @@ O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativ
 - Token: assinado com `JWT_SECRET`; validade limitada por `JWT_EXPIRES_IN`.
 - Validação: corpo das requisições validado por DTO com lista de campos permitidos. Campo não declarado retorna 400.
 - Respostas: a entidade do banco nunca é devolvida diretamente; a resposta é montada a partir de um objeto de saída que omite `passwordHash`.
-- Banco: a porta 5432 publica-se somente em `127.0.0.1`.
+- Banco: a porta do banco (5433 no host, 5432 no contêiner) publica-se somente em `127.0.0.1`.
 - Logs: as chaves dos provedores (Groq, OpenRouter) e o token nunca aparecem em log.
 - Esquema do banco: `synchronize: true` durante o desenvolvimento. Migrações versionadas ficam para a Aula 08.
 
@@ -171,9 +188,9 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
 
 ### Etapa 1 — Infraestrutura e esqueleto do backend
 
-- Entrega: `docker-compose.yml` com PostgreSQL 17; projeto NestJS em `backend/`; módulo `health`.
+- Entrega: `docker-compose.yml` com PostgreSQL 18; projeto NestJS em `backend/`; módulo `health`.
 - Aceite:
-  - `docker compose ps` mostra `127.0.0.1:5432->5432/tcp`.
+  - `docker compose ps` mostra `127.0.0.1:5433->5432/tcp`.
   - `npm run start:dev` em `backend/` sobe sem erro.
   - `GET /api/health` retorna 200 com `{ "status": "ok" }`.
 
@@ -252,3 +269,24 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
 - Todas as etapas com critérios de aceite cumpridos e registrados em commits separados.
 - `unzip -l entrega.zip | grep -E "\.env$|node_modules"` não lista nada.
 - `README.md` inclui a declaração de uso de IA: ferramentas, modelos e etapa em que foram usados.
+
+## 12. Divergências em relação à versão 0.1
+
+Registro do que mudou entre o rascunho (0.1) e o que foi construído, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima.
+
+| Assunto | Versão 0.1 | Vale agora | Motivo |
+|---|---|---|---|
+| Porta do banco no host | 5432 | 5433 (`127.0.0.1:5433->5432/tcp`) | O serviço do PostgreSQL instalado no Windows da máquina de desenvolvimento ocupa a 5432 e não pôde ser parado. O banco continua publicado só em `127.0.0.1`. |
+| Versão do PostgreSQL | 17 | 18 (`postgres:18-alpine`), volume em `/var/lib/postgresql` | Escolha do grupo. |
+| Credenciais do banco no compose | valores fixos | variáveis de `backend/.env`; subir com `--env-file backend/.env` | Evita senha no repositório. O Compose só lê o `.env` da raiz, daí a flag. |
+| Provedor de transcrição | só a Groq | Groq ou OpenRouter, por `TRANSCRIPTION_PROVIDER` | O grupo ainda não tinha chave da Groq e tinha crédito no OpenRouter. O contrato da API não mudou. |
+| Documentação da API | não prevista | Swagger em `/docs` com autenticação Basic | Pedido do grupo. Está fora do contrato da API. |
+| Interface | Tailwind e lucide-react | também shadcn/ui, com identidade visual em `docs/DESIGN.md` | Pedido do grupo: interface padronizada, com tokens de cor e fonte. |
+| Versões da pilha | não fixadas | NestJS 11 (CommonJS), TypeORM 0.3, Jest 29, TypeScript 5.9 no backend; Vite 8, React 19 e Tailwind 4 no frontend | NestJS 12 é só ESM e quebra o Jest e a CLI no Node 22.14. |
+| Lint do frontend | ESLint | oxlint (padrão do gerador de projetos do Vite atual) | `npm run lint` continua sendo o comando. |
+| Verificação do token | não definida | a guarda consulta o usuário a cada requisição (seção 6) | Faz a desativação e a troca de papel valerem na hora. |
+
+Pontos que a especificação continua sem decidir:
+
+- Um administrador pode rebaixar o próprio papel para `user`, e o sistema pode ficar sem administrador. A regra RN4 só impede desativar a própria conta.
+- Prazo de renovação do token: não há refresh; ao expirar, o usuário entra de novo.

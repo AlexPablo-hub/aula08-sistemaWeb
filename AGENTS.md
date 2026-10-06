@@ -6,7 +6,7 @@ Este arquivo descreve como trabalhar neste repositório. A especificação do pr
 
 - Frontend: React + Vite + TypeScript, react-router-dom, axios, TanStack Query (dados do servidor), Zustand (sessão), react-hook-form + zod, Tailwind CSS v4, shadcn/ui, lucide-react.
 - Backend: NestJS + TypeScript, TypeORM + PostgreSQL 17, @nestjs/jwt + passport-jwt, bcryptjs, class-validator + class-transformer, multer.
-- Banco local: `docker compose up -d` na raiz (somente PostgreSQL).
+- Banco local: `docker compose --env-file backend/.env up -d` na raiz (somente PostgreSQL). A flag é necessária: o compose lê as credenciais de `backend/.env`.
 - Plataforma de desenvolvimento: Windows com PowerShell. Não use comandos Bash nem scripts `.sh`.
 
 ## Comandos
@@ -20,7 +20,7 @@ Verificação:
 
 - Backend: `npm test` (testes e2e com supertest) e `npm run build`
 - Frontend: `npm run build` e `npm run lint`
-- Banco: `docker compose ps` deve mostrar `127.0.0.1:5432->5432/tcp`
+- Banco: `docker compose ps` deve mostrar `127.0.0.1:5433->5432/tcp`
 
 Nunca rode `npm install` a partir da raiz: cada projeto tem o seu `package.json`.
 
