@@ -1,6 +1,6 @@
 # Ditado — Especificação
 
-Versão: 0.6 (acrescenta a edição do título da transcrição; a 0.5 acrescentou a permanência do áudio enviado, guardado num bucket MinIO e reproduzido no histórico; a 0.4 acrescentou a escolha do provedor e do modelo de transcrição no painel do administrador; as diferenças em relação às versões anteriores estão na seção 12)
+Versão: 0.6 (acrescenta a edição do título da transcrição; a 0.5 acrescentou a permanência do áudio enviado, guardado num bucket MinIO e reproduzido no histórico; a 0.4 acrescentou a escolha do provedor e do modelo de transcrição no painel do administrador)
 
 ## 1. Visão geral
 
@@ -226,7 +226,7 @@ Os nomes das variáveis estão em `.env.example`. Os valores reais ficam em `bac
 - `OPENROUTER_API_KEY`: chave pessoal do OpenRouter (alternativa à Groq). Nunca vai para o frontend, para o banco nem para o repositório.
 - Provedor e modelo de transcrição não são mais variáveis de ambiente: o administrador os escolhe no painel (seção 7) e a escolha fica na tabela `settings`. Sem escolha salva vale o padrão da RN19. Sem chave do provedor em uso, a aplicação sobe e o envio de áudio retorna 502.
 - `JWT_SECRET` e `JWT_EXPIRES_IN`: assinatura e validade do token (padrão `1d`).
-- Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`. O padrão de desenvolvimento de `DATABASE_PORT` é `5433` (seção 12). O `docker-compose.yml` lê essas variáveis de `backend/.env`; por isso o banco sobe com `docker compose --env-file backend/.env up -d`.
+- Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`. O padrão de desenvolvimento de `DATABASE_PORT` é `5433` (a 5432 do host costuma estar ocupada pelo PostgreSQL instalado no Windows). O `docker-compose.yml` lê essas variáveis de `backend/.env`; por isso o banco sobe com `docker compose --env-file backend/.env up -d`.
 - `DOCS_USER` e `DOCS_PASSWORD`: credenciais Basic do Swagger em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`; troque fora do ambiente local.
 - `GOOGLE_CLIENT_ID`: client ID OAuth do Google (público, termina em `.apps.googleusercontent.com`). É usado como `audience` na validação do ID token. Sem ele, `GET /api/auth/google` retorna 404 e `POST /api/auth/google` retorna 401 com mensagem de login com Google não configurado. O client secret não é usado neste fluxo e não deve ficar no repositório.
 - Armazenamento do áudio (MinIO, compatível com S3): `MINIO_ENDPOINT` (endereço `https://...` do servidor), `MINIO_BUCKET` (nome do bucket), `MINIO_ACCESS_KEY` e `MINIO_SECRET_KEY` (credenciais) e `MINIO_REGION` (opcional; padrão `us-east-1`). Se qualquer uma das quatro primeiras estiver vazia, o armazenamento fica desligado: a aplicação sobe, o envio transcreve sem guardar o áudio e a rota de áudio retorna 404 (RN25). As credenciais nunca vão para o frontend, para o banco nem para o repositório.
@@ -393,40 +393,3 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
   - `fileName`, `text`, `language` e o áudio ficam inalterados.
   - Transcrições antigas (sem título salvo) listam `title` igual ao `fileName`.
   - Nenhuma resposta contém `userId` nem `audioKey`.
-
-## 11. Verificação final
-
-- Todas as etapas com critérios de aceite cumpridos e registrados em commits separados.
-- `unzip -l entrega.zip | grep -E "\.env$|node_modules"` não lista nada.
-- `README.md` inclui a declaração de uso de IA: ferramentas, modelos e etapa em que foram usados.
-
-## 12. Divergências em relação às versões anteriores
-
-Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3, 0.4, 0.5 e 0.6, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as sobre a configuração de transcrição, da 0.4; as sobre o áudio guardado, da 0.5; as sobre o título, da 0.6; as demais, da 0.2.
-
-| Assunto | Versão 0.1 | Vale agora | Motivo |
-|---|---|---|---|
-| Porta do banco no host | 5432 | 5433 (`127.0.0.1:5433->5432/tcp`) | O serviço do PostgreSQL instalado no Windows da máquina de desenvolvimento ocupa a 5432 e não pôde ser parado. O banco continua publicado só em `127.0.0.1`. |
-| Versão do PostgreSQL | 17 | 18 (`postgres:18-alpine`), volume em `/var/lib/postgresql` | Escolha do grupo. |
-| Credenciais do banco no compose | valores fixos | variáveis de `backend/.env`; subir com `--env-file backend/.env` | Evita senha no repositório. O Compose só lê o `.env` da raiz, daí a flag. |
-| Provedor de transcrição | só a Groq | Groq ou OpenRouter, escolhido no painel do administrador (versão 0.4; na 0.2 era por `TRANSCRIPTION_PROVIDER`) | O grupo ainda não tinha chave da Groq e tinha crédito no OpenRouter. O contrato da API não mudou. |
-| Documentação da API | não prevista | Swagger em `/docs` com autenticação Basic | Pedido do grupo. Está fora do contrato da API. |
-| Interface | Tailwind e lucide-react | também shadcn/ui, com identidade visual em `docs/DESIGN.md` | Pedido do grupo: interface padronizada, com tokens de cor e fonte. |
-| Versões da pilha | não fixadas | NestJS 11 (CommonJS), TypeORM 0.3, Jest 29, TypeScript 5.9 no backend; Vite 8, React 19 e Tailwind 4 no frontend | NestJS 12 é só ESM e quebra o Jest e a CLI no Node 22.14. |
-| Lint do frontend | ESLint | oxlint (padrão do gerador de projetos do Vite atual) | `npm run lint` continua sendo o comando. |
-| Verificação do token | não definida | a guarda consulta o usuário a cada requisição (seção 6) | Faz a desativação e a troca de papel valerem na hora. |
-| Login com Google | fora do escopo | dentro do escopo (Etapa 10), com ID token validado no backend | Pedido do grupo, para entrar sem criar senha. Usa só o client ID, sem client secret. |
-| `passwordHash` | obrigatório | opcional (nulo para conta só do Google); novo campo `googleId` | Conta criada pelo Google não tem senha. |
-| `GOOGLE_CLIENT_ID` | não existia | variável de configuração; público | Define a `audience` do ID token e é entregue ao frontend por `GET /api/auth/google`. |
-| `TRANSCRIPTION_PROVIDER`, `GROQ_MODEL`, `OPENROUTER_MODEL` | variáveis de ambiente | removidas; valem as escolhas do painel, com padrão na RN19 | Trocar de provedor ou modelo não deve exigir editar o `.env` e reiniciar. Linhas antigas no `.env` ficam sem efeito. |
-| Configuração de transcrição | por instalação, no `.env` | global, no banco (tabela `settings`), alterada só por administrador | Uma escolha única para todos os usuários, feita pelo site. As chaves continuam só no `.env`. |
-| Modelo `fish-audio/transcribe-1-pro` | não existia | opção do catálogo no OpenRouter, chamada por JSON com `input_audio` | Pedido do grupo. O modelo existe na lista pública do OpenRouter. |
-| Áudio enviado | descartado depois da transcrição; só o texto era gravado | guardado num bucket MinIO enquanto a transcrição existir; `hasAudio` no objeto de transcrição (versão 0.5) | Pedido do grupo: ouvir de novo o áudio no histórico. Sem MinIO configurado, o envio continua funcionando sem guardar o áudio. |
-| Armazenamento | não existia | MinIO (compatível com S3), bucket privado, variáveis `MINIO_*` só no backend | O áudio é dado pessoal; o bucket não é público e as credenciais não saem do servidor. |
-| Reprodução do áudio | não existia | `GET /api/transcriptions/:id/audio`, servida pelo backend com checagem de dono | O navegador nunca recebe o endereço do bucket nem credenciais; transcrição de outro usuário continua 404 (RN5). |
-| Título da transcrição | o histórico mostrava o `fileName` como título, sem edição | campo próprio `title` (opcional), editável pelo dono por `PATCH /api/transcriptions/:id`; o objeto de transcrição ganhou `title`, sempre string (o `title` salvo ou, se nulo, o `fileName`) (versão 0.6) | Pedido do grupo. Premissa adotada: o título é do dono e editável, e o `fileName` continua sendo o nome original, imutável (o frontend o usa para derivar o tipo de áudio). O texto transcrito continua não editável. A coluna `title` é nova e nula nas linhas antigas; `synchronize` só a acrescenta, sem perda de dados. |
-
-Pontos que a especificação continua sem decidir:
-
-- Um administrador pode rebaixar o próprio papel para `user`, e o sistema pode ficar sem administrador. A regra RN4 só impede desativar a própria conta.
-- Prazo de renovação do token: não há refresh; ao expirar, o usuário entra de novo.
