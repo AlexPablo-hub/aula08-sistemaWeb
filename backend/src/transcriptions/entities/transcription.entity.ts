@@ -21,7 +21,11 @@ export class Transcription {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  // Nome original do arquivo enviado.
+  // Título dado pelo dono; nulo significa "usar o nome do arquivo" (RN29).
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  title: string | null;
+
+  // Nome original do arquivo enviado (imutável).
   @Column({ type: 'varchar', length: 255 })
   fileName: string;
 

@@ -113,6 +113,7 @@ describe('Transcrições: envio', () => {
     expect(res.status).toBe(201);
     expect(res.body).toEqual({
       id: expect.any(String),
+      title: 'fala.mp3',
       fileName: 'fala.mp3',
       language: 'en',
       text: 'texto transcrito de teste',

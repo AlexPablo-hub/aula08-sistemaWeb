@@ -11,6 +11,7 @@ import { SettingsService } from '../settings/settings.service';
 import { AudioStorage, StoredAudio } from '../storage/audio-storage';
 import { extensaoDoArquivo, validarAudio } from './audio-upload';
 import { CreateTranscriptionDto } from './dto/create-transcription.dto';
+import { UpdateTranscriptionDto } from './dto/update-transcription.dto';
 import {
   TranscriptionResponseDto,
   toTranscriptionResponse,
@@ -97,6 +98,18 @@ export class TranscriptionsService {
 
   async findOne(userId: string, id: string): Promise<TranscriptionResponseDto> {
     return toTranscriptionResponse(await this.buscarDoDono(userId, id));
+  }
+
+  // RN26 a RN28: só o dono; grava somente o título.
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdateTranscriptionDto,
+  ): Promise<TranscriptionResponseDto> {
+    const transcricao = await this.buscarDoDono(userId, id);
+    await this.repo.update({ id: transcricao.id, userId }, { title: dto.title });
+    transcricao.title = dto.title;
+    return toTranscriptionResponse(transcricao);
   }
 
   // RN22: só o dono; inexistente, de outro usuário ou sem áudio é 404.

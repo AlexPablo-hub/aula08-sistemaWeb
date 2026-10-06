@@ -4,7 +4,13 @@ import { Transcription } from '../entities/transcription.entity';
 // Objeto de saída: nunca inclui userId, audioKey nem a entidade.
 export class TranscriptionResponseDto {
   @ApiProperty({ format: 'uuid' }) id: string;
-  @ApiProperty() fileName: string;
+  @ApiProperty({
+    description:
+      'Título efetivo: o título salvo ou, se não houver, o nome do arquivo.',
+  })
+  title: string;
+  @ApiProperty({ description: 'Nome original do arquivo enviado.' })
+  fileName: string;
   @ApiProperty({ example: 'pt' }) language: string;
   @ApiProperty() text: string;
   @ApiProperty({
@@ -19,6 +25,7 @@ export function toTranscriptionResponse(
 ): TranscriptionResponseDto {
   return {
     id: t.id,
+    title: t.title ?? t.fileName,
     fileName: t.fileName,
     language: t.language,
     text: t.text,

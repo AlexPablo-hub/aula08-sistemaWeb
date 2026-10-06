@@ -138,6 +138,7 @@ describe('Transcrições: histórico e exclusão', () => {
     ]);
     expect(res.body[0]).toEqual({
       id: expect.any(String),
+      title: 'recente.mp3',
       fileName: 'recente.mp3',
       language: 'pt',
       text: 'recente.mp3',

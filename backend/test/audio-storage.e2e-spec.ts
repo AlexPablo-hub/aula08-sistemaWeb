@@ -126,6 +126,7 @@ describe('Transcrições: áudio guardado', () => {
     expect(res.status).toBe(201);
     expect(res.body).toEqual({
       id: expect.any(String),
+      title: 'Fala.MP3',
       fileName: 'Fala.MP3',
       language: 'pt',
       text: 'texto transcrito de teste',

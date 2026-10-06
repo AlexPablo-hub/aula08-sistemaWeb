@@ -9,6 +9,7 @@ import {
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   StreamableFile,
   UploadedFile,
@@ -39,6 +40,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { TAMANHO_MAXIMO_BYTES } from './audio-upload';
 import { CreateTranscriptionDto } from './dto/create-transcription.dto';
+import { UpdateTranscriptionDto } from './dto/update-transcription.dto';
 import { TranscriptionResponseDto } from './dto/transcription-response.dto';
 import { PayloadTooLargeFilter } from './payload-too-large.filter';
 import { TranscriptionsService } from './transcriptions.service';
@@ -124,6 +126,32 @@ export class TranscriptionsController {
     @Param('id', uuidPipe) id: string,
   ): Promise<TranscriptionResponseDto> {
     return this.transcriptions.findOne(user.id, id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Edita o título de uma transcrição do usuário' })
+  @ApiParam({ name: 'id', format: 'uuid', description: 'Id da transcrição.' })
+  @ApiBody({ type: UpdateTranscriptionDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Transcrição atualizada.',
+    type: TranscriptionResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Título ausente, em branco ou acima de 120 caracteres, ou campo extra.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Sem token ou token inválido.' })
+  @ApiNotFoundResponse({
+    description:
+      'Transcrição inexistente, de outro usuário ou id fora do formato UUID.',
+  })
+  update(
+    @CurrentUser() user: User,
+    @Param('id', uuidPipe) id: string,
+    @Body() dto: UpdateTranscriptionDto,
+  ): Promise<TranscriptionResponseDto> {
+    return this.transcriptions.update(user.id, id, dto);
   }
 
   @Get(':id/audio')
