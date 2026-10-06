@@ -14,9 +14,11 @@ import {
   TranscribeInput,
 } from '../src/transcriptions/providers/transcription-provider';
 import { criarProvedor } from '../src/transcriptions/providers/transcription-provider.factory';
+import { AudioStorage } from '../src/storage/audio-storage';
 import { TranscriptionsModule } from '../src/transcriptions/transcriptions.module';
 import { Role, User } from '../src/users/entities/user.entity';
 import { UsersModule } from '../src/users/users.module';
+import { FakeAudioStorage } from './fake-audio-storage';
 
 describe('Configuração de transcrição (painel do administrador)', () => {
   let app: INestApplication;
@@ -95,6 +97,9 @@ describe('Configuração de transcrição (painel do administrador)', () => {
     })
       .overrideProvider(TRANSCRIPTION_PROVIDER)
       .useValue(provedorFalso)
+      // Nenhuma chamada ao MinIO real.
+      .overrideProvider(AudioStorage)
+      .useValue(new FakeAudioStorage(false))
       .compile();
     app = moduleRef.createNestApplication();
     configureApp(app);

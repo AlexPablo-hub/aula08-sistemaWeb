@@ -11,9 +11,11 @@ import {
   TranscribeInput,
 } from '../src/transcriptions/providers/transcription-provider';
 import { Transcription } from '../src/transcriptions/entities/transcription.entity';
+import { AudioStorage } from '../src/storage/audio-storage';
 import { TranscriptionsModule } from '../src/transcriptions/transcriptions.module';
 import { User } from '../src/users/entities/user.entity';
 import { UsersModule } from '../src/users/users.module';
+import { FakeAudioStorage } from './fake-audio-storage';
 
 describe('Transcrições: envio', () => {
   let app: INestApplication;
@@ -63,6 +65,9 @@ describe('Transcrições: envio', () => {
     })
       .overrideProvider(TRANSCRIPTION_PROVIDER)
       .useValue(provedorFalso)
+      // Armazenamento desligado: nenhuma chamada ao MinIO real.
+      .overrideProvider(AudioStorage)
+      .useValue(new FakeAudioStorage(false))
       .compile();
     app = moduleRef.createNestApplication();
     configureApp(app);
@@ -111,6 +116,7 @@ describe('Transcrições: envio', () => {
       fileName: 'fala.mp3',
       language: 'en',
       text: 'texto transcrito de teste',
+      hasAudio: false,
       createdAt: expect.any(String),
     });
     expect(res.body.userId).toBeUndefined();

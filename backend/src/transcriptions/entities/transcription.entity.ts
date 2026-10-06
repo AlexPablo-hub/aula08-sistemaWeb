@@ -31,6 +31,17 @@ export class Transcription {
   @Column({ type: 'text' })
   text: string;
 
+  // Chave do objeto no bucket; nulo quando o áudio não foi guardado. Nunca vai para a API.
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  audioKey: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  audioMimeType: string | null;
+
+  // Tamanho do áudio guardado, em bytes.
+  @Column({ type: 'integer', nullable: true })
+  audioSize: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

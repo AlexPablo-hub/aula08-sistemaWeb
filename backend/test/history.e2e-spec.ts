@@ -8,9 +8,11 @@ import { configureApp } from '../src/app.setup';
 import { AuthModule } from '../src/auth/auth.module';
 import { Transcription } from '../src/transcriptions/entities/transcription.entity';
 import { TRANSCRIPTION_PROVIDER } from '../src/transcriptions/providers/transcription-provider';
+import { AudioStorage } from '../src/storage/audio-storage';
 import { TranscriptionsModule } from '../src/transcriptions/transcriptions.module';
 import { User } from '../src/users/entities/user.entity';
 import { UsersModule } from '../src/users/users.module';
+import { FakeAudioStorage } from './fake-audio-storage';
 
 describe('Transcrições: histórico e exclusão', () => {
   let app: INestApplication;
@@ -52,6 +54,9 @@ describe('Transcrições: histórico e exclusão', () => {
       // Nenhuma chamada de rede: o provedor nunca é usado nestas rotas.
       .overrideProvider(TRANSCRIPTION_PROVIDER)
       .useValue({ transcribe: () => Promise.resolve('x') })
+      // Nenhuma chamada ao MinIO real.
+      .overrideProvider(AudioStorage)
+      .useValue(new FakeAudioStorage(false))
       .compile();
     app = moduleRef.createNestApplication();
     configureApp(app);
@@ -136,6 +141,7 @@ describe('Transcrições: histórico e exclusão', () => {
       fileName: 'recente.mp3',
       language: 'pt',
       text: 'recente.mp3',
+      hasAudio: false,
       createdAt: expect.any(String),
     });
   });
@@ -151,7 +157,7 @@ describe('Transcrições: histórico e exclusão', () => {
     const res = await api('get', `/api/transcriptions/${idsA[0]}`, tokenA);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(idsA[0]);
-    expect(JSON.stringify(res.body)).not.toMatch(/userId|passwordHash/);
+    expect(JSON.stringify(res.body)).not.toMatch(/userId|passwordHash|audioKey/);
   });
 
   it('listagem não contém userId nem passwordHash', async () => {

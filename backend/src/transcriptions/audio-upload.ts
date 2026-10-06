@@ -19,15 +19,19 @@ export const EXTENSOES_ACEITAS = [
 const MIMETYPE_ACEITO =
   /^(audio\/.+|video\/(mp4|webm|mpeg)|application\/(ogg|octet-stream))$/i;
 
+// Extensão em minúsculas, sem o ponto; vazia se o nome não tiver extensão.
+export function extensaoDoArquivo(nome: string): string {
+  const ponto = nome.lastIndexOf('.');
+  return ponto >= 0 ? nome.slice(ponto + 1).toLowerCase() : '';
+}
+
 export function validarAudio(file: Express.Multer.File | undefined): void {
   if (!file) {
     throw new BadRequestException(
       'Arquivo de áudio ausente: envie o campo "file".',
     );
   }
-  const ponto = file.originalname.lastIndexOf('.');
-  const extensao =
-    ponto >= 0 ? file.originalname.slice(ponto + 1).toLowerCase() : '';
+  const extensao = extensaoDoArquivo(file.originalname);
   if (
     !EXTENSOES_ACEITAS.includes(extensao) ||
     !MIMETYPE_ACEITO.test(file.mimetype)

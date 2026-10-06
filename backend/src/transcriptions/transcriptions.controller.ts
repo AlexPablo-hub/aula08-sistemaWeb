@@ -3,12 +3,14 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
+  StreamableFile,
   UploadedFile,
   UseFilters,
   UseGuards,
@@ -27,6 +29,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiProduces,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -86,7 +89,7 @@ export class TranscriptionsController {
   @ApiResponse({ status: 413, description: 'Arquivo acima de 25 MB.' })
   @ApiBadGatewayResponse({
     description:
-      'Falha, indisponibilidade ou falta de configuração do provedor.',
+      'Falha, indisponibilidade ou falta de configuração do provedor de transcrição, ou falha do armazenamento do áudio.',
   })
   create(
     @CurrentUser() user: User,
@@ -121,6 +124,35 @@ export class TranscriptionsController {
     @Param('id', uuidPipe) id: string,
   ): Promise<TranscriptionResponseDto> {
     return this.transcriptions.findOne(user.id, id);
+  }
+
+  @Get(':id/audio')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: 'Devolve o áudio guardado de uma transcrição' })
+  @ApiParam({ name: 'id', format: 'uuid', description: 'Id da transcrição.' })
+  @ApiProduces('audio/*')
+  @ApiResponse({
+    status: 200,
+    description: 'Arquivo de áudio, com o Content-Type do áudio original.',
+    content: {
+      'audio/*': { schema: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Sem token ou token inválido.' })
+  @ApiNotFoundResponse({
+    description:
+      'Transcrição inexistente, de outro usuário, sem áudio guardado ou id fora do formato UUID.',
+  })
+  async findAudio(
+    @CurrentUser() user: User,
+    @Param('id', uuidPipe) id: string,
+  ): Promise<StreamableFile> {
+    const audio = await this.transcriptions.getAudio(user.id, id);
+    return new StreamableFile(audio.stream, {
+      type: audio.contentType,
+      length: audio.contentLength,
+      disposition: 'inline',
+    });
   }
 
   @Delete(':id')
