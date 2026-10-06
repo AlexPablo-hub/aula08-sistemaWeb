@@ -50,6 +50,7 @@ Preencha as variáveis:
 | `GROQ_MODEL` | Modelo do Groq. Padrão `whisper-large-v3-turbo`. |
 | `OPENROUTER_API_KEY` | Chave pessoal do OpenRouter (começa com `sk-or-`). |
 | `OPENROUTER_MODEL` | Modelo do OpenRouter. Padrão `openai/whisper-large-v3-turbo`. |
+| `GOOGLE_CLIENT_ID` | Opcional. Client ID OAuth do Google (termina em `.apps.googleusercontent.com`; é público). Sem ele, o botão "Entrar com Google" não aparece. Veja a seção "Login com Google (opcional)". |
 | `PORT` | Porta da API. Padrão `3000`. |
 | `DOCS_USER` e `DOCS_PASSWORD` | Usuário e senha (Basic auth) da documentação em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`. |
 
@@ -60,6 +61,21 @@ Para gerar um `JWT_SECRET` aleatório no PowerShell (cole o resultado no `backen
 ```powershell
 -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 48 | ForEach-Object { [char]$_ })
 ```
+
+## Login com Google (opcional)
+
+O botão "Entrar com Google" só aparece se `GOOGLE_CLIENT_ID` estiver preenchido no `backend/.env`. Sem ele, o login por e-mail e senha funciona normalmente. Para obter o client ID:
+
+1. Em https://console.cloud.google.com, crie um projeto (ou escolha um existente).
+2. Configure a tela de consentimento OAuth (menu APIs e serviços, depois Tela de permissão OAuth). Se ela ficar em modo **Teste**, adicione o e-mail de cada pessoa que vai entrar como **usuário de teste**; caso contrário o Google bloqueia o login ("access blocked").
+3. Em Credenciais, crie uma credencial **ID do cliente OAuth** do tipo **Aplicativo da Web**.
+4. Em **Origens JavaScript autorizadas**, adicione exatamente `http://localhost:5173` (sem barra no final). `localhost` e `127.0.0.1` são origens diferentes para o Google: cadastre a que você realmente usa no navegador. As mudanças podem levar alguns minutos para valer.
+5. **Não é preciso** cadastrar URI de redirecionamento: o fluxo usa o botão do Google Identity Services, que entrega um ID token ao navegador, e o backend o valida.
+6. Copie o **ID do cliente** para `GOOGLE_CLIENT_ID` no `backend/.env` e reinicie o backend.
+
+O **client secret não é usado** neste projeto e não deve ficar no repositório. O arquivo `client_secret*.json` que o Google oferece para download está no `.gitignore`, mas o melhor é não guardá-lo na pasta do projeto.
+
+Para produção (Aula 08), acrescente também a origem `https` do domínio em **Origens JavaScript autorizadas**.
 
 ## 4. Subir o banco
 
@@ -101,7 +117,7 @@ O Vite sobe em http://localhost:5173 e encaminha `/api` para `http://localhost:3
 Abra http://localhost:5173.
 
 1. **Entrar como administrador:** em `/entrar`, use `ADMIN_EMAIL` e `ADMIN_PASSWORD` do `backend/.env`.
-2. **Cadastrar:** em `/cadastrar`, crie uma conta comum (nome, e-mail e senha de 8 ou mais caracteres). O cadastro público sempre cria papel `user`.
+2. **Cadastrar:** em `/cadastrar`, crie uma conta comum (nome, e-mail e senha de 8 ou mais caracteres). O cadastro público sempre cria papel `user`. Com o login com Google configurado, `/entrar` e `/cadastrar` também mostram o botão do Google: o e-mail verificado pelo Google cria a conta (papel `user`, sem senha) ou entra na conta já existente com esse e-mail.
 3. **Enviar áudio:** em `/app`, escolha um arquivo (`mp3`, `m4a`, `wav`, `ogg`, `webm`, `flac`, `mp4` ou `mpeg`, até 25 MB) e o idioma, e clique em Enviar áudio. O texto aparece na tela.
 4. **Histórico:** na mesma página, cada transcrição pode ser vista por inteiro ou excluída.
 5. **Administração:** o administrador vê o link Administração e acessa `/app/admin`, onde lista as contas e altera nome, papel e situação (ativa ou inativa). O administrador não consegue desativar a própria conta. Usuário comum que abrir `/app/admin` é levado a `/app`.
@@ -132,9 +148,9 @@ docs/DESIGN.md          sistema de design do frontend
 AGENTS.md               como trabalhar no repositório
 .env.example            nomes das variáveis, sem valores sensíveis
 docker-compose.yml      PostgreSQL local
-backend/src/            módulos: common, health, auth, users, transcriptions
+backend/src/            módulos: common, health, auth (senha e Google), users, transcriptions
 backend/test/           testes e2e (supertest)
-frontend/src/           pages, components (ui, layout), services, store, types
+frontend/src/           pages, components (ui, layout, auth), services, store, types
 ```
 
 ## 11. Solução de problemas
@@ -159,6 +175,10 @@ docker compose --env-file backend/.env up -d
 
 **PowerShell 5 (Windows PowerShell) e caminhos com acento.** Em pastas como `TÓPICOS ESPECIAIS`, scripts e comandos podem falhar no PowerShell 5 por causa da codificação. Use o PowerShell 7 (`pwsh`) ou clone o projeto num caminho sem acentos.
 
+**O botão do Google não aparece.** Confira, nesta ordem: `GOOGLE_CLIENT_ID` está preenchido no `backend/.env`; o backend foi reiniciado depois de editar o arquivo (`GET /api/auth/google` responde 404 quando a variável está vazia); o navegador ou uma extensão não está bloqueando o script `https://accounts.google.com/gsi/client`. Nesses casos o formulário de e-mail e senha continua funcionando.
+
+**Erro do Google ao clicar no botão.** `origin_mismatch` ou `invalid_client` indica que a origem não está cadastrada ou foi digitada diferente (por exemplo `127.0.0.1` em vez de `localhost`, ou barra no final) em Origens JavaScript autorizadas, ou que o client ID está errado; aguarde alguns minutos após mudar. "Acesso bloqueado" (access blocked) indica que o app está em modo Teste e o e-mail usado não foi adicionado como usuário de teste na tela de consentimento.
+
 **Envio de áudio responde 502.** Falta a chave do provedor, ela é inválida ou o provedor está indisponível. Confira `GROQ_API_KEY` ou `OPENROUTER_API_KEY` e reinicie o backend.
 
 ## 12. Divergências conhecidas da especificação
@@ -178,7 +198,8 @@ Ferramentas de IA foram usadas no **desenvolvimento** do projeto, conforme a se�
 |---|---|---|
 | 1. Infraestrutura e esqueleto do backend | Claude Code (Anthropic) | [confirmar o modelo usado na Etapa 1] |
 | 2 a 9. Backend (usuários, autenticação, transcrição, histórico, administração), frontend (páginas, envio, histórico, administração) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
+| 10. Login com Google (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 
-Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
+Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. Na Etapa 10, o plano foi proposto e aprovado antes da execução. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
 
 O **Whisper** (via Groq ou OpenRouter) é usado apenas **em tempo de execução**, para transcrever os áudios enviados à aplicação. Ele não é ferramenta de desenvolvimento.
