@@ -1,8 +1,17 @@
-export interface TranscribeInput {
+import { TranscriptionProviderName } from '../../settings/transcription-catalog';
+
+// Dados do áudio, sem provedor nem modelo (esses vêm da configuração salva).
+export interface AudioInput {
   buffer: Buffer;
   fileName: string;
   mimeType: string;
   language: string;
+}
+
+// Áudio mais a escolha resolvida a cada envio (provedor e modelo).
+export interface TranscribeInput extends AudioInput {
+  provider: TranscriptionProviderName;
+  model: string;
 }
 
 // Interface comum aos provedores externos de transcrição.

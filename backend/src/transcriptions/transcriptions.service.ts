@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { SettingsService } from '../settings/settings.service';
 import { validarAudio } from './audio-upload';
 import { CreateTranscriptionDto } from './dto/create-transcription.dto';
 import {
@@ -20,6 +21,7 @@ export class TranscriptionsService {
     private readonly repo: Repository<Transcription>,
     @Inject(TRANSCRIPTION_PROVIDER)
     private readonly provider: TranscriptionProvider,
+    private readonly settings: SettingsService,
   ) {}
 
   // Só grava depois que o provedor responde (RN9).
@@ -32,7 +34,11 @@ export class TranscriptionsService {
     const audio = file as Express.Multer.File;
     const language = dto.language ?? 'pt';
 
+    // Configuração global lida a cada envio (provedor e modelo do painel).
+    const { provider, model } = await this.settings.resolveTranscription();
     const text = await this.provider.transcribe({
+      provider,
+      model,
       buffer: audio.buffer,
       fileName: audio.originalname,
       mimeType: audio.mimetype,

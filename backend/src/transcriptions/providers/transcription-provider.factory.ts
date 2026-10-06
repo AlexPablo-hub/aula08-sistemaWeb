@@ -1,43 +1,33 @@
 import { BadGatewayException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  TranscriptionProviderName,
+  providerApiKey,
+} from '../../settings/transcription-catalog';
 import { GroqProvider } from './groq.provider';
 import { OpenRouterProvider } from './openrouter.provider';
-import { TranscriptionProvider } from './transcription-provider';
+import { TranscribeInput, TranscriptionProvider } from './transcription-provider';
 
 const NAO_CONFIGURADO =
   'O serviço de transcrição não está configurado. Avise o administrador.';
 
-// Provedor sem chave: a aplicação sobe, mas o envio responde 502.
-class NaoConfiguradoProvider implements TranscriptionProvider {
-  transcribe(): Promise<string> {
-    return Promise.reject(new BadGatewayException(NAO_CONFIGURADO));
-  }
-}
-
-// TRANSCRIPTION_PROVIDER=groq|openrouter; vazio escolhe pela chave preenchida
-// (Groq primeiro, depois OpenRouter).
+// Monta o cliente do provedor a cada envio, com o provedor e o modelo recebidos
+// (resolvidos da configuração salva). Sem a chave do provedor, a aplicação segue
+// de pé, mas o envio responde 502 e nada é gravado (RN9, RN20).
 export function criarProvedor(config: ConfigService): TranscriptionProvider {
-  const groqKey = config.get<string>('GROQ_API_KEY')?.trim();
-  const orKey = config.get<string>('OPENROUTER_API_KEY')?.trim();
-  const escolhido = config
-    .get<string>('TRANSCRIPTION_PROVIDER')
-    ?.trim()
-    .toLowerCase();
-
-  const nome = escolhido || (groqKey ? 'groq' : orKey ? 'openrouter' : '');
-
-  if (nome === 'groq' && groqKey) {
-    return new GroqProvider(
-      groqKey,
-      config.get<string>('GROQ_MODEL')?.trim() || 'whisper-large-v3-turbo',
-    );
-  }
-  if (nome === 'openrouter' && orKey) {
-    return new OpenRouterProvider(
-      orKey,
-      config.get<string>('OPENROUTER_MODEL')?.trim() ||
-        'openai/whisper-large-v3-turbo',
-    );
-  }
-  return new NaoConfiguradoProvider();
+  return {
+    transcribe(input: TranscribeInput): Promise<string> {
+      const chave = providerApiKey(config, input.provider);
+      if (!chave) {
+        return Promise.reject(new BadGatewayException(NAO_CONFIGURADO));
+      }
+      if (input.provider === TranscriptionProviderName.Groq) {
+        return new GroqProvider(chave, input.model).transcribe(input);
+      }
+      if (input.provider === TranscriptionProviderName.OpenRouter) {
+        return new OpenRouterProvider(chave, input.model).transcribe(input);
+      }
+      return Promise.reject(new BadGatewayException(NAO_CONFIGURADO));
+    },
+  };
 }

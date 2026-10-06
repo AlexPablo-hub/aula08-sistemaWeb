@@ -1,16 +1,13 @@
 import { transcribeMultipart } from './openai-compatible';
-import {
-  TranscribeInput,
-  TranscriptionProvider,
-} from './transcription-provider';
+import { AudioInput } from './transcription-provider';
 
-export class GroqProvider implements TranscriptionProvider {
+export class GroqProvider {
   constructor(
     private readonly apiKey: string,
     private readonly model: string,
   ) {}
 
-  transcribe(input: TranscribeInput): Promise<string> {
+  transcribe(input: AudioInput): Promise<string> {
     return transcribeMultipart(
       'Groq',
       'https://api.groq.com/openai/v1/audio/transcriptions',

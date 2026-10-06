@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { SettingsModule } from '../settings/settings.module';
 import { Transcription } from './entities/transcription.entity';
 import { TRANSCRIPTION_PROVIDER } from './providers/transcription-provider';
 import { criarProvedor } from './providers/transcription-provider.factory';
@@ -12,6 +13,7 @@ import { TranscriptionsService } from './transcriptions.service';
   imports: [
     ConfigModule,
     AuthModule,
+    SettingsModule,
     TypeOrmModule.forFeature([Transcription]),
   ],
   controllers: [TranscriptionsController],
