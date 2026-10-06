@@ -1,6 +1,6 @@
 # Ditado — Especificação
 
-Versão: 0.2 (revisada após a implementação; as diferenças em relação à versão 0.1 estão na seção 12)
+Versão: 0.3 (acrescenta o login com Google; as diferenças em relação às versões anteriores estão na seção 12)
 
 ## 1. Visão geral
 
@@ -14,6 +14,7 @@ Dentro do escopo:
 
 - Página inicial pública.
 - Cadastro e login com e-mail e senha.
+- Login e cadastro com conta Google (botão do Google Identity Services; o navegador obtém um ID token e o backend o valida).
 - Envio de um arquivo de áudio por vez, com escolha de idioma.
 - Histórico pessoal de transcrições: listar, ler e excluir.
 - Área administrativa: listar contas, alterar nome e papel, desativar conta.
@@ -48,7 +49,8 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 | id | UUID | chave primária |
 | name | texto (até 100) | obrigatório |
 | email | texto (até 255) | obrigatório, único, em minúsculas |
-| passwordHash | texto | hash bcrypt; nunca retornado pela API |
+| passwordHash | texto, opcional | hash bcrypt; nulo para conta criada só pelo Google; nunca retornado pela API |
+| googleId | texto (até 255), opcional | identificador (`sub`) da conta Google; único; nunca retornado pela API |
 | role | enum `user` \| `admin` | padrão `user` |
 | active | booleano | padrão `true`; conta desativada não entra |
 | createdAt | data/hora | automático |
@@ -76,6 +78,11 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 - **RN8 — Idioma:** campo `language` opcional no envio, com valor padrão `pt`. Código inválido retorna 400.
 - **RN9 — Falha externa:** erro, indisponibilidade ou falta de configuração do provedor de transcrição (Groq ou OpenRouter) retorna 502. Nenhuma transcrição é gravada nesse caso.
 - **RN10 — Ordenação:** o histórico vem da transcrição mais recente para a mais antiga.
+- **RN11 — Conta criada pelo Google:** tem sempre papel `user` e não tem senha (`passwordHash` nulo). O nome vem do Google; se vier vazio, usa-se a parte local do e-mail (até 100 caracteres). O papel nunca vem do cliente.
+- **RN12 — E-mail do Google não verificado:** se o Google não marcar `email_verified` como verdadeiro, o login retorna 401 e nada é criado nem vinculado.
+- **RN13 — Vínculo com conta existente:** se o e-mail verificado pelo Google já estiver cadastrado, a conta existente é vinculada ao `googleId` e o login prossegue, sem alterar o papel. Se a conta já estiver vinculada a outro `googleId`, retorna 401.
+- **RN14 — Conta desativada no Google:** login com Google de conta com `active = false` retorna 401, com a mesma mensagem de credenciais inválidas (RN4).
+- **RN15 — Conta sem senha:** conta criada só pelo Google que tentar entrar por `/api/auth/login` recebe 401, com a mesma mensagem de credenciais inválidas (RN4).
 
 ## 6. Contrato da API
 
@@ -92,11 +99,16 @@ Base: `/api`. Corpo em JSON, exceto o envio de áudio, que usa `multipart/form-d
 | Método | Caminho | Protegida | Sucesso | Erros |
 |---|---|---|---|---|
 | POST | `/api/auth/register` | não | 201 `{ user, accessToken }` | 400 (corpo inválido ou campo `role`), 409 (e-mail existente) |
-| POST | `/api/auth/login` | não | 200 `{ user, accessToken }` | 400 (corpo inválido), 401 (credenciais inválidas ou conta desativada) |
+| POST | `/api/auth/login` | não | 200 `{ user, accessToken }` | 400 (corpo inválido), 401 (credenciais inválidas, conta desativada ou conta sem senha) |
+| POST | `/api/auth/google` | não | 200 `{ user, accessToken }` | 400 (corpo inválido), 401 (token inválido, e-mail não verificado, conta desativada, `googleId` diferente ou login com Google não configurado) |
+| GET | `/api/auth/google` | não | 200 `{ "clientId": "..." }` | 404 (`GOOGLE_CLIENT_ID` não configurado) |
 
 Corpo de cadastro: `{ "name", "email", "password" }`.
 Corpo de login: `{ "email", "password" }`.
-Objeto `user` na resposta: `{ "id", "name", "email", "role", "active" }`, sem `passwordHash`.
+Corpo de login com Google: `{ "credential": "<ID token do Google>" }`.
+Objeto `user` na resposta: `{ "id", "name", "email", "role", "active" }`, sem `passwordHash` e sem `googleId`.
+
+O `GET /api/auth/google` existe porque o frontend não tem `.env`: ele descobre o client ID por esta rota. O client ID é público.
 
 ### Transcrições
 
@@ -140,8 +152,8 @@ Todas as respostas de erro têm a forma `{ "statusCode", "message", "error" }`.
 | Rota | Acesso | Conteúdo |
 |---|---|---|
 | `/` | público | Apresentação do Ditado, botões Entrar e Cadastrar |
-| `/cadastrar` | público | Formulário de nome, e-mail e senha |
-| `/entrar` | público | Formulário de e-mail e senha |
+| `/cadastrar` | público | Formulário de nome, e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
+| `/entrar` | público | Formulário de e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
 | `/app` | usuário logado | Envio de áudio com escolha de idioma; histórico com ver e excluir |
 | `/app/admin` | papel `admin` | Lista de contas, com alteração de nome, papel e status ativo |
 
@@ -168,6 +180,7 @@ Os nomes das variáveis estão em `.env.example`. Os valores reais ficam em `bac
 - `JWT_SECRET` e `JWT_EXPIRES_IN`: assinatura e validade do token (padrão `1d`).
 - Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`. O padrão de desenvolvimento de `DATABASE_PORT` é `5433` (seção 12). O `docker-compose.yml` lê essas variáveis de `backend/.env`; por isso o banco sobe com `docker compose --env-file backend/.env up -d`.
 - `DOCS_USER` e `DOCS_PASSWORD`: credenciais Basic do Swagger em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`; troque fora do ambiente local.
+- `GOOGLE_CLIENT_ID`: client ID OAuth do Google (público, termina em `.apps.googleusercontent.com`). É usado como `audience` na validação do ID token. Sem ele, `GET /api/auth/google` retorna 404 e `POST /api/auth/google` retorna 401 com mensagem de login com Google não configurado. O client secret não é usado neste fluxo e não deve ficar no repositório.
 - `PORT`: porta do backend (padrão `3000`).
 
 O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativo `/api`.
@@ -177,7 +190,8 @@ O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativ
 - Senhas: somente hash bcrypt; senha em texto nunca é gravada, registrada em log ou retornada.
 - Token: assinado com `JWT_SECRET`; validade limitada por `JWT_EXPIRES_IN`.
 - Validação: corpo das requisições validado por DTO com lista de campos permitidos. Campo não declarado retorna 400.
-- Respostas: a entidade do banco nunca é devolvida diretamente; a resposta é montada a partir de um objeto de saída que omite `passwordHash`.
+- Respostas: a entidade do banco nunca é devolvida diretamente; a resposta é montada a partir de um objeto de saída que omite `passwordHash` e `googleId`.
+- Login com Google: o ID token é validado no backend (assinatura, emissor e `audience` igual a `GOOGLE_CLIENT_ID`). Nenhum token do Google é gravado nem registrado em log.
 - Banco: a porta do banco (5433 no host, 5432 no contêiner) publica-se somente em `127.0.0.1`.
 - Logs: as chaves dos provedores (Groq, OpenRouter) e o token nunca aparecem em log.
 - Esquema do banco: `synchronize: true` durante o desenvolvimento. Migrações versionadas ficam para a Aula 08.
@@ -264,15 +278,29 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
   - Usuário comum não consegue abrir `/app/admin`.
   - Seguindo somente o `README.md` em uma pasta limpa, a aplicação sobe e o fluxo da etapa 8 funciona.
 
+### Etapa 10 — Login com Google
+
+- Entrega: `POST /api/auth/google` e `GET /api/auth/google`; campo `googleId` e `passwordHash` opcional em `users`; variável `GOOGLE_CLIENT_ID`; botão "Entrar com Google" nas telas `/entrar` e `/cadastrar`.
+- Aceite:
+  - ID token válido de e-mail novo cria conta com papel `user`, sem senha, e retorna 200 com `user` e `accessToken`.
+  - E-mail já cadastrado e verificado pelo Google é vinculado à conta existente, sem alterar o papel.
+  - E-mail não verificado pelo Google retorna 401.
+  - Token inválido retorna 401.
+  - Conta desativada retorna 401, com a mesma mensagem de credenciais inválidas.
+  - Conta vinculada a outro `googleId` retorna 401.
+  - Login por senha de conta criada só pelo Google retorna 401, com a mesma mensagem de credenciais inválidas.
+  - A resposta não contém `passwordHash` nem `googleId`.
+  - `GET /api/auth/google` retorna 200 com `clientId` quando `GOOGLE_CLIENT_ID` está configurado e 404 quando não está.
+
 ## 11. Verificação final
 
 - Todas as etapas com critérios de aceite cumpridos e registrados em commits separados.
 - `unzip -l entrega.zip | grep -E "\.env$|node_modules"` não lista nada.
 - `README.md` inclui a declaração de uso de IA: ferramentas, modelos e etapa em que foram usados.
 
-## 12. Divergências em relação à versão 0.1
+## 12. Divergências em relação às versões anteriores
 
-Registro do que mudou entre o rascunho (0.1) e o que foi construído, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima.
+Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e a versão 0.3, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as demais, da 0.2.
 
 | Assunto | Versão 0.1 | Vale agora | Motivo |
 |---|---|---|---|
@@ -285,6 +313,9 @@ Registro do que mudou entre o rascunho (0.1) e o que foi construído, com o moti
 | Versões da pilha | não fixadas | NestJS 11 (CommonJS), TypeORM 0.3, Jest 29, TypeScript 5.9 no backend; Vite 8, React 19 e Tailwind 4 no frontend | NestJS 12 é só ESM e quebra o Jest e a CLI no Node 22.14. |
 | Lint do frontend | ESLint | oxlint (padrão do gerador de projetos do Vite atual) | `npm run lint` continua sendo o comando. |
 | Verificação do token | não definida | a guarda consulta o usuário a cada requisição (seção 6) | Faz a desativação e a troca de papel valerem na hora. |
+| Login com Google | fora do escopo | dentro do escopo (Etapa 10), com ID token validado no backend | Pedido do grupo, para entrar sem criar senha. Usa só o client ID, sem client secret. |
+| `passwordHash` | obrigatório | opcional (nulo para conta só do Google); novo campo `googleId` | Conta criada pelo Google não tem senha. |
+| `GOOGLE_CLIENT_ID` | não existia | variável de configuração; público | Define a `audience` do ID token e é entregue ao frontend por `GET /api/auth/google`. |
 
 Pontos que a especificação continua sem decidir:
 
