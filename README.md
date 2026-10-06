@@ -207,7 +207,7 @@ docker compose --env-file backend/.env up -d
 
 ## 12. Divergências conhecidas da especificação
 
-A especificação (`docs/ESPECIFICACAO.md`, seção 12) registra o que mudou em relação ao rascunho inicial. Os pontos que afetam quem roda o projeto:
+A especificação (`docs/ESPECIFICACAO.md`) descreve o sistema como ele está hoje, e alguns pontos diferem do rascunho inicial (versão 0.1). Os que afetam quem roda o projeto:
 
 - **Porta do banco 5433, não 5432.** O repositório publica `127.0.0.1:5433` porque o serviço do PostgreSQL do Windows ocupa a 5432 na máquina de desenvolvimento. `DATABASE_PORT` no `.env.example` é `5433`.
 - **PostgreSQL 18** (`postgres:18-alpine`).
@@ -216,7 +216,7 @@ A especificação (`docs/ESPECIFICACAO.md`, seção 12) registra o que mudou em 
 
 ## 13. Declaração de uso de IA
 
-Ferramentas de IA foram usadas no **desenvolvimento** do projeto, conforme a seção 11 da especificação.
+Ferramentas de IA foram usadas no **desenvolvimento** do projeto. Esta seção declara quais ferramentas e modelos foram usados, e em que etapa.
 
 | Etapa | Ferramenta | Modelo |
 |---|---|---|
@@ -225,6 +225,7 @@ Ferramentas de IA foram usadas no **desenvolvimento** do projeto, conforme a se�
 | 10. Login com Google (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 11. Provedor e modelo de transcrição no painel (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 12. Permanência do áudio no MinIO (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
+| 13. Player de áudio próprio no estilo do site (frontend) | Claude Code (Anthropic), diretamente na conversa, sem subagentes | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 14. Edição do título da transcrição (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 
 Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. Na Etapa 10, o plano foi proposto e aprovado antes da execução. O plano da Etapa 11 também foi proposto e aprovado antes da execução. O plano da Etapa 12 foi proposto e aprovado antes da execução. O plano da Etapa 14 foi proposto na conversa e a execução da fila foi aprovada. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
