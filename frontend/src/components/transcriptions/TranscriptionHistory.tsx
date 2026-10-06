@@ -20,6 +20,7 @@ import { excerpt, formatDateTime } from '@/lib/format'
 import { list, remove } from '@/services/transcriptions'
 import type { Transcription } from '@/types'
 import { AudioPlayer } from './AudioPlayer'
+import { EditableTitle } from './EditableTitle'
 import { TranscriptionDialog } from './TranscriptionDialog'
 
 const LIST_KEY = ['transcriptions']
@@ -33,6 +34,7 @@ type TranscriptionHistoryProps = {
 export function TranscriptionHistory({ onDeleted }: TranscriptionHistoryProps) {
   const queryClient = useQueryClient()
   const [viewId, setViewId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [toDelete, setToDelete] = useState<Transcription | null>(null)
 
   const query = useQuery({ queryKey: LIST_KEY, queryFn: list })
@@ -109,7 +111,16 @@ export function TranscriptionHistory({ onDeleted }: TranscriptionHistoryProps) {
               className="grid gap-3 py-4 md:grid-cols-[1fr_auto] md:items-start md:gap-6"
             >
               <div className="min-w-0 space-y-1">
-                <p className="truncate font-mono text-sm font-medium">{item.fileName}</p>
+                <EditableTitle
+                  item={item}
+                  editing={editingId === item.id}
+                  onEditingChange={(editing) => setEditingId(editing ? item.id : null)}
+                >
+                  <p className="break-words text-base font-medium">{item.title}</p>
+                  {item.fileName !== item.title ? (
+                    <p className="truncate font-mono text-xs text-muted-foreground">{item.fileName}</p>
+                  ) : null}
+                </EditableTitle>
                 <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="outline">{languageLabel(item.language)}</Badge>
                   <span>{formatDateTime(item.createdAt)}</span>
@@ -147,7 +158,7 @@ export function TranscriptionHistory({ onDeleted }: TranscriptionHistoryProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir transcrição?</AlertDialogTitle>
             <AlertDialogDescription>
-              {toDelete ? `"${toDelete.fileName}" será removida do histórico. ` : ''}
+              {toDelete ? `"${toDelete.title}" será removida do histórico. ` : ''}
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>

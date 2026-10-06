@@ -1,6 +1,6 @@
 import { api } from './api'
 import { audioMimeFromFileName } from '@/lib/audio'
-import type { Transcription } from '@/types'
+import type { Transcription, UpdateTranscriptionInput } from '@/types'
 
 export async function list(): Promise<Transcription[]> {
   const { data } = await api.get<Transcription[]>('/transcriptions')
@@ -18,6 +18,13 @@ export async function create(file: File, language: string): Promise<Transcriptio
   form.append('file', file)
   form.append('language', language)
   const { data } = await api.post<Transcription>('/transcriptions', form)
+  return data
+}
+
+/** Altera só o título; o nome original do arquivo, o texto e o áudio não mudam. */
+export async function updateTitle(id: string, title: string): Promise<Transcription> {
+  const body: UpdateTranscriptionInput = { title }
+  const { data } = await api.patch<Transcription>(`/transcriptions/${id}`, body)
   return data
 }
 

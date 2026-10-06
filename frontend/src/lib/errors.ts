@@ -54,6 +54,25 @@ export function describeTranscriptionError(error: unknown): string {
   return 'Algo deu errado. Tente de novo em instantes.'
 }
 
+/** Converte um erro da edição do título em texto claro para o usuário. */
+export function describeTitleError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return 'Não foi possível falar com o servidor. Verifique a conexão e tente de novo.'
+    }
+    const message = backendMessage(error)
+    switch (error.response.status) {
+      case 400:
+        return message ?? 'Título inválido. Informe de 1 a 120 caracteres.'
+      case 401:
+        return 'Sua sessão expirou. Entre de novo.'
+      case 404:
+        return 'Transcrição não encontrada.'
+    }
+  }
+  return 'Não foi possível salvar o título. Tente de novo em instantes.'
+}
+
 /** Converte um erro de chamada ao áudio de uma transcrição em texto claro para o usuário. */
 export function describeAudioError(error: unknown): string {
   if (axios.isAxiosError(error)) {

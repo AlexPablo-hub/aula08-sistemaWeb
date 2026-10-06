@@ -114,6 +114,8 @@ Gradientes; roxo ou azul-índigo; glassmorphism e desfoque; brilhos; sombras; he
 
 - `AudioPlayer` (`components/transcriptions`): recebe `id`, `fileName` e `hasAudio`; mostra "Áudio não guardado" em texto discreto ou o botão "Ouvir" (`Button` outline `sm`), que baixa o áudio pelo `api`. Depois de baixado, mostra um controle próprio em uma faixa de borda fina: botão quadrado de tocar e pausar (`Button` primário `icon-sm`), tempo atual e duração em `font-mono`, e a barra de posição (`Slider`: trilho `border`, preenchimento `foreground`, marcador quadrado). O `<audio>` nativo fica oculto e nunca é mostrado com seus controles do navegador. Só um toca por vez.
 
+- `EditableTitle` (`components/transcriptions`): edição inline do título, no histórico e no diálogo. O título aparece como texto, com o `fileName` original abaixo em `font-mono` discreto (só se for diferente) e um botão fantasma `icon-xs` com lápis ("Editar título"). Em edição, vira um `Input` com o valor selecionado, `Salvar` e `Cancelar` (`sm`) e contador em `font-mono`; Enter salva, Esc cancela, e o erro aparece em bloco `destructive-soft` com `role="alert"`.
+
 Se faltar um componente, adicione com `npx shadcn@latest add <nome>` dentro de `frontend/` e ajuste-o aos tokens (sem sombras, sem `dark:`, raios pequenos, foco em contorno) antes de usar.
 
 ## Utilitários

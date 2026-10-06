@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import { describeTranscriptionError } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { get } from '@/services/transcriptions'
 import { AudioPlayer } from './AudioPlayer'
+import { EditableTitle } from './EditableTitle'
 import { TranscriptionText } from './TranscriptionText'
 
 type TranscriptionDialogProps = {
@@ -31,14 +33,34 @@ export function TranscriptionDialog({ id, onClose }: TranscriptionDialogProps) {
     retry: false,
   })
   const item = query.data
+  const [editing, setEditing] = useState(false)
+
+  function close() {
+    setEditing(false)
+    onClose()
+  }
 
   return (
-    <Dialog open={id !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="font-mono text-base break-all">
-            {item?.fileName ?? 'Transcrição'}
-          </DialogTitle>
+    <Dialog open={id !== null} onOpenChange={(open) => (open ? undefined : close())}>
+      <DialogContent
+        className="sm:max-w-2xl"
+        // Esc durante a edição só cancela a edição; o campo trata a tecla.
+        onEscapeKeyDown={(event) => {
+          if (editing) event.preventDefault()
+        }}
+      >
+        <DialogHeader className="pr-6">
+          {item ? (
+            <EditableTitle key={item.id} item={item} editing={editing} onEditingChange={setEditing}>
+              <DialogTitle className="text-base break-words">{item.title}</DialogTitle>
+              {item.fileName !== item.title ? (
+                <p className="truncate font-mono text-xs text-muted-foreground">{item.fileName}</p>
+              ) : null}
+            </EditableTitle>
+          ) : (
+            <DialogTitle className="text-base">Transcrição</DialogTitle>
+          )}
+          {item && editing ? <DialogTitle className="sr-only">Editar título</DialogTitle> : null}
           <DialogDescription>
             {item ? (
               <span className="flex flex-wrap items-center gap-2">

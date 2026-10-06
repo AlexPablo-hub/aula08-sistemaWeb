@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { AppShell, PageContainer, PageHeader, UserArea, useAppNavigation } from '@/components/layout'
 import { AudioPlayer } from '@/components/transcriptions/AudioPlayer'
 import { TranscriptionHistory } from '@/components/transcriptions/TranscriptionHistory'
@@ -7,12 +8,16 @@ import { UploadForm } from '@/components/transcriptions/UploadForm'
 import { Badge } from '@/components/ui/badge'
 import { languageLabel } from '@/lib/audio'
 import { formatDateTime } from '@/lib/format'
+import { list } from '@/services/transcriptions'
 import type { Transcription } from '@/types'
 
 /** Área interna: envio de áudio, resultado e histórico. */
 export default function AppHome() {
   const navigation = useAppNavigation()
-  const [latest, setLatest] = useState<Transcription | null>(null)
+  const [created, setCreated] = useState<Transcription | null>(null)
+  // Mesma consulta do histórico: o título editado ali aparece também no resultado.
+  const history = useQuery({ queryKey: ['transcriptions'], queryFn: list })
+  const latest = created ? (history.data?.find((t) => t.id === created.id) ?? created) : null
 
   return (
     <AppShell navigation={navigation} userArea={<UserArea />}>
@@ -27,7 +32,7 @@ export default function AppHome() {
               <h2 id="upload-title" className="mb-4 border-b border-foreground pb-2 text-2xl">
                 Novo envio
               </h2>
-              <UploadForm onCreated={setLatest} />
+              <UploadForm onCreated={setCreated} />
             </section>
             {latest ? (
               <section aria-labelledby="result-title" aria-live="polite">
@@ -35,7 +40,10 @@ export default function AppHome() {
                   Resultado
                 </h2>
                 <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <span className="font-mono text-foreground">{latest.fileName}</span>
+                  <span className="text-base font-medium text-foreground">{latest.title}</span>
+                  {latest.fileName !== latest.title ? (
+                    <span className="font-mono text-xs">{latest.fileName}</span>
+                  ) : null}
                   <Badge variant="outline">{languageLabel(latest.language)}</Badge>
                   <span>{formatDateTime(latest.createdAt)}</span>
                 </p>
@@ -47,7 +55,7 @@ export default function AppHome() {
             ) : null}
           </div>
           <TranscriptionHistory
-            onDeleted={(id) => setLatest((current) => (current?.id === id ? null : current))}
+            onDeleted={(id) => setCreated((current) => (current?.id === id ? null : current))}
           />
         </div>
       </PageContainer>

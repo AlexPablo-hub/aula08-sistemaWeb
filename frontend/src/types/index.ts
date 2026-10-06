@@ -5,5 +5,5 @@ export type {
   TranscriptionSettings,
   UpdateTranscriptionSettingsInput,
 } from './settings'
-export type { Transcription } from './transcription'
+export type { Transcription, UpdateTranscriptionInput } from './transcription'
 export type { UpdateUserInput } from './user'
