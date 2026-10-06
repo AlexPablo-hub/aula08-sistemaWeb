@@ -53,3 +53,26 @@ export function describeTranscriptionError(error: unknown): string {
   }
   return 'Algo deu errado. Tente de novo em instantes.'
 }
+
+/** Converte um erro de chamada à administração de contas em texto claro para o usuário. */
+export function describeUserError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return 'Não foi possível falar com o servidor. Verifique a conexão e tente de novo.'
+    }
+    const message = backendMessage(error)
+    switch (error.response.status) {
+      case 400:
+        return message ?? 'Dados inválidos. Confira os campos e tente de novo.'
+      case 401:
+        return 'Sua sessão expirou. Entre de novo.'
+      case 403:
+        return 'Você não tem permissão para administrar contas.'
+      case 404:
+        return 'Conta não encontrada. Atualize a lista e tente de novo.'
+      case 409:
+        return message ?? 'Um administrador não pode desativar a própria conta.'
+    }
+  }
+  return 'Algo deu errado. Tente de novo em instantes.'
+}

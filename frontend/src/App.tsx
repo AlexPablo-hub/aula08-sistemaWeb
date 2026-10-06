@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Toaster } from '@/components/ui/sonner'
+import Admin from '@/pages/Admin'
 import AppHome from '@/pages/AppHome'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import Register from '@/pages/Register'
-import { GuestRoute, ProtectedRoute } from '@/routes/ProtectedRoute'
+import { AdminRoute, GuestRoute, ProtectedRoute } from '@/routes/ProtectedRoute'
 
 const queryClient = new QueryClient()
 
@@ -22,6 +23,9 @@ export default function App() {
           </Route>
           <Route element={<ProtectedRoute />}>
             <Route path="/app" element={<AppHome />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/app/admin" element={<Admin />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

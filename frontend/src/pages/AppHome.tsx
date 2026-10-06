@@ -1,39 +1,20 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { AppShell, PageContainer, PageHeader } from '@/components/layout'
+import { AppShell, PageContainer, PageHeader, UserArea, useAppNavigation } from '@/components/layout'
 import { TranscriptionHistory } from '@/components/transcriptions/TranscriptionHistory'
 import { TranscriptionText } from '@/components/transcriptions/TranscriptionText'
 import { UploadForm } from '@/components/transcriptions/UploadForm'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { languageLabel } from '@/lib/audio'
 import { formatDateTime } from '@/lib/format'
-import { useAuthStore } from '@/store/authStore'
 import type { Transcription } from '@/types'
 
 /** Área interna: envio de áudio, resultado e histórico. */
 export default function AppHome() {
-  const navigate = useNavigate()
-  const user = useAuthStore((s) => s.user)
-  const clearSession = useAuthStore((s) => s.clearSession)
+  const navigation = useAppNavigation()
   const [latest, setLatest] = useState<Transcription | null>(null)
 
-  function logout() {
-    clearSession()
-    navigate('/entrar', { replace: true })
-  }
-
   return (
-    <AppShell
-      userArea={
-        <>
-          <span className="text-muted-foreground">{user?.name}</span>
-          <Button variant="outline" size="sm" onClick={logout}>
-            Sair
-          </Button>
-        </>
-      }
-    >
+    <AppShell navigation={navigation} userArea={<UserArea />}>
       <PageContainer>
         <PageHeader
           title="Transcrever áudio"
