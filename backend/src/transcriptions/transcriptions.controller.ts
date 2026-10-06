@@ -1,6 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
   Post,
   UploadedFile,
   UseFilters,
@@ -15,7 +22,11 @@ import {
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -28,6 +39,11 @@ import { CreateTranscriptionDto } from './dto/create-transcription.dto';
 import { TranscriptionResponseDto } from './dto/transcription-response.dto';
 import { PayloadTooLargeFilter } from './payload-too-large.filter';
 import { TranscriptionsService } from './transcriptions.service';
+
+// Id fora do formato UUID também é 404, para não vazar nada (o contrato só prevê 404).
+const uuidPipe = new ParseUUIDPipe({
+  exceptionFactory: () => new NotFoundException('Transcrição não encontrada.'),
+});
 
 @ApiTags('transcriptions')
 @ApiBearerAuth()
@@ -78,5 +94,49 @@ export class TranscriptionsController {
     @Body() dto: CreateTranscriptionDto,
   ): Promise<TranscriptionResponseDto> {
     return this.transcriptions.create(user.id, file, dto);
+  }
+
+  @Get()
+  @ApiOperation({
+    summary:
+      'Lista as transcrições do usuário, da mais recente para a mais antiga',
+  })
+  @ApiOkResponse({ type: [TranscriptionResponseDto] })
+  @ApiUnauthorizedResponse({ description: 'Sem token ou token inválido.' })
+  findAll(@CurrentUser() user: User): Promise<TranscriptionResponseDto[]> {
+    return this.transcriptions.findAll(user.id);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Devolve uma transcrição do usuário' })
+  @ApiParam({ name: 'id', format: 'uuid', description: 'Id da transcrição.' })
+  @ApiOkResponse({ type: TranscriptionResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Sem token ou token inválido.' })
+  @ApiNotFoundResponse({
+    description:
+      'Transcrição inexistente, de outro usuário ou id fora do formato UUID.',
+  })
+  findOne(
+    @CurrentUser() user: User,
+    @Param('id', uuidPipe) id: string,
+  ): Promise<TranscriptionResponseDto> {
+    return this.transcriptions.findOne(user.id, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Exclui uma transcrição do usuário' })
+  @ApiParam({ name: 'id', format: 'uuid', description: 'Id da transcrição.' })
+  @ApiNoContentResponse({ description: 'Transcrição excluída, sem corpo.' })
+  @ApiUnauthorizedResponse({ description: 'Sem token ou token inválido.' })
+  @ApiNotFoundResponse({
+    description:
+      'Transcrição inexistente, de outro usuário ou id fora do formato UUID.',
+  })
+  remove(
+    @CurrentUser() user: User,
+    @Param('id', uuidPipe) id: string,
+  ): Promise<void> {
+    return this.transcriptions.remove(user.id, id);
   }
 }

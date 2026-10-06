@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { validarAudio } from './audio-upload';
@@ -48,5 +48,35 @@ export class TranscriptionsService {
       }),
     );
     return toTranscriptionResponse(saved);
+  }
+
+  // RN10: da mais recente para a mais antiga; RN5: só as do dono.
+  async findAll(userId: string): Promise<TranscriptionResponseDto[]> {
+    const lista = await this.repo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+    return lista.map(toTranscriptionResponse);
+  }
+
+  async findOne(userId: string, id: string): Promise<TranscriptionResponseDto> {
+    return toTranscriptionResponse(await this.buscarDoDono(userId, id));
+  }
+
+  async remove(userId: string, id: string): Promise<void> {
+    const transcricao = await this.buscarDoDono(userId, id);
+    await this.repo.delete({ id: transcricao.id, userId });
+  }
+
+  // Inexistente ou de outro usuário: 404 igual nos dois casos (RN5).
+  private async buscarDoDono(
+    userId: string,
+    id: string,
+  ): Promise<Transcription> {
+    const transcricao = await this.repo.findOneBy({ id, userId });
+    if (!transcricao) {
+      throw new NotFoundException('Transcrição não encontrada.');
+    }
+    return transcricao;
   }
 }
