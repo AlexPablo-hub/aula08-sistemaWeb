@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Loader2, Play } from 'lucide-react'
+import { Loader2, Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
 import { describeAudioError } from '@/lib/errors'
+import { formatClock } from '@/lib/format'
 import { getAudio } from '@/services/transcriptions'
 
 type AudioPlayerProps = {
@@ -14,9 +16,13 @@ type AudioPlayerProps = {
 /**
  * Ouvir o áudio guardado. O arquivo só é baixado ao clicar em Ouvir, por `services/api.ts`
  * (com o token), e tocado por URL de objeto, revogada ao trocar de item ou desmontar.
+ * Depois de carregado, o controle é próprio (tocar, pausar e posição), no estilo do site.
  */
 export function AudioPlayer({ id, fileName, hasAudio }: AudioPlayerProps) {
   const [url, setUrl] = useState<string | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [current, setCurrent] = useState(0)
+  const [duration, setDuration] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const download = useMutation({
@@ -30,7 +36,7 @@ export function AudioPlayer({ id, fileName, hasAudio }: AudioPlayerProps) {
     return () => URL.revokeObjectURL(url)
   }, [url])
 
-  // Ao carregar, tenta tocar; se o navegador bloquear, o usuário aperta play no controle.
+  // Ao carregar, tenta tocar; se o navegador bloquear, o usuário aperta tocar.
   useEffect(() => {
     if (!url) return
     audioRef.current?.play().catch(() => undefined)
@@ -40,6 +46,9 @@ export function AudioPlayer({ id, fileName, hasAudio }: AudioPlayerProps) {
   useEffect(() => {
     return () => {
       setUrl(null)
+      setPlaying(false)
+      setCurrent(0)
+      setDuration(0)
       download.reset()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,21 +61,77 @@ export function AudioPlayer({ id, fileName, hasAudio }: AudioPlayerProps) {
     })
   }
 
+  function toggle() {
+    const audio = audioRef.current
+    if (!audio) return
+    if (audio.paused) audio.play().catch(() => undefined)
+    else audio.pause()
+  }
+
+  function seek(value: number[]) {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = value[0]
+    setCurrent(value[0])
+  }
+
   if (!hasAudio) {
     return <p className="text-sm text-muted-foreground">Áudio não guardado</p>
   }
 
   if (url) {
+    // Alguns arquivos (webm, ogg) não informam a duração: sem ela, a barra fica parada.
+    const seekable = Number.isFinite(duration) && duration > 0
     return (
-      <audio
-        ref={audioRef}
-        src={url}
-        controls
-        preload="auto"
-        onPlay={pauseOthers}
+      <div
+        role="group"
         aria-label={`Áudio de ${fileName}`}
-        className="h-10 w-full max-w-full"
-      />
+        className="flex w-full items-center gap-3 border border-border bg-card px-3 py-2"
+      >
+        <audio
+          ref={audioRef}
+          src={url}
+          preload="auto"
+          hidden
+          onPlay={() => {
+            setPlaying(true)
+            pauseOthers()
+          }}
+          onPause={() => setPlaying(false)}
+          onEnded={() => {
+            setPlaying(false)
+            setCurrent(0)
+          }}
+          onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+          onDurationChange={(event) => setDuration(event.currentTarget.duration)}
+          onTimeUpdate={(event) => setCurrent(event.currentTarget.currentTime)}
+        />
+        <Button
+          type="button"
+          size="icon-sm"
+          onClick={toggle}
+          aria-label={`${playing ? 'Pausar' : 'Tocar'} o áudio de ${fileName}`}
+        >
+          {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+        </Button>
+        <span className="w-10 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+          {formatClock(current)}
+        </span>
+        <Slider
+          min={0}
+          max={seekable ? duration : 1}
+          step={0.1}
+          value={[seekable ? Math.min(current, duration) : 0]}
+          onValueChange={seek}
+          disabled={!seekable}
+          thumbLabel="Posição do áudio"
+          valueText={`${formatClock(current)} de ${formatClock(duration)}`}
+          className="min-w-0 flex-1"
+        />
+        <span className="w-10 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
+          {formatClock(duration)}
+        </span>
+      </div>
     )
   }
 

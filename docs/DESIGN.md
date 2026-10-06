@@ -102,7 +102,7 @@ Gradientes; roxo ou azul-índigo; glassmorphism e desfoque; brilhos; sombras; he
 
 `components/ui` (shadcn, já ajustados ao design; não sobrescreva estilo nas páginas):
 
-`Button` (variantes `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`; tamanhos `sm`, `default`, `lg`, `icon`), `Input`, `Label`, `Textarea`, `Select`, `Switch`, `RadioGroup` (itens quadrados, sem `rounded-full`; agrupe com `fieldset` e `legend`), `Card`, `Badge` (`default`, `accent`, `success`, `destructive`, `outline`), `Table`, `Tabs`, `Dialog`, `AlertDialog` (confirmar exclusão), `DropdownMenu`, `Separator`, `Skeleton`, `Toaster` (sonner; chame `toast.success` e `toast.error`).
+`Button` (variantes `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`; tamanhos `sm`, `default`, `lg`, `icon`), `Input`, `Label`, `Textarea`, `Select`, `Switch`, `RadioGroup` (itens quadrados, sem `rounded-full`; agrupe com `fieldset` e `legend`), `Slider` (trilho fino, marcador quadrado), `Card`, `Badge` (`default`, `accent`, `success`, `destructive`, `outline`), `Table`, `Tabs`, `Dialog`, `AlertDialog` (confirmar exclusão), `DropdownMenu`, `Separator`, `Skeleton`, `Toaster` (sonner; chame `toast.success` e `toast.error`).
 
 `components/layout`:
 
@@ -112,7 +112,7 @@ Gradientes; roxo ou azul-índigo; glassmorphism e desfoque; brilhos; sombras; he
 - `AuthLayout`: telas `/entrar` e `/cadastrar`. Duas colunas: à esquerda o painel de marca (fundo tinta, "Ditado" em serifada e uma frase curta); à direita o formulário, centralizado na vertical, com largura máxima `max-w-sm`. Em tela estreita vira uma coluna e o painel se reduz a um cabeçalho com a marca. Props: `title`, `description` opcional, `children` (o formulário) e `footer` (link alternativo, por exemplo "Não tem conta? Cadastrar").
 - `GoogleSignInButton` (`components/auth`): separador "ou" (linha fina de 1px entre duas linhas) e o botão do Google Identity Services, renderizado pelo próprio Google (`theme` outline, `shape` rectangular, `locale` pt-BR). Fica abaixo do formulário em `/entrar` e `/cadastrar` e só aparece quando `GET /api/auth/google` informa o client ID. Erros usam o mesmo bloco `role="alert"` dos formulários.
 
-- `AudioPlayer` (`components/transcriptions`): recebe `id`, `fileName` e `hasAudio`; mostra "Áudio não guardado" em texto discreto ou o botão "Ouvir" (`Button` outline `sm`), que baixa o áudio pelo `api` e o toca num `<audio controls>` nativo de largura total, só um por vez.
+- `AudioPlayer` (`components/transcriptions`): recebe `id`, `fileName` e `hasAudio`; mostra "Áudio não guardado" em texto discreto ou o botão "Ouvir" (`Button` outline `sm`), que baixa o áudio pelo `api`. Depois de baixado, mostra um controle próprio em uma faixa de borda fina: botão quadrado de tocar e pausar (`Button` primário `icon-sm`), tempo atual e duração em `font-mono`, e a barra de posição (`Slider`: trilho `border`, preenchimento `foreground`, marcador quadrado). O `<audio>` nativo fica oculto e nunca é mostrado com seus controles do navegador. Só um toca por vez.
 
 Se faltar um componente, adicione com `npx shadcn@latest add <nome>` dentro de `frontend/` e ajuste-o aos tokens (sem sombras, sem `dark:`, raios pequenos, foco em contorno) antes de usar.
 
