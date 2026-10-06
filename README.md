@@ -48,6 +48,11 @@ Preencha as variáveis:
 | `GROQ_API_KEY` | Chave pessoal do Groq (começa com `gsk_`). |
 | `OPENROUTER_API_KEY` | Chave pessoal do OpenRouter (começa com `sk-or-`). |
 | `GOOGLE_CLIENT_ID` | Opcional. Client ID OAuth do Google (termina em `.apps.googleusercontent.com`; é público). Sem ele, o botão "Entrar com Google" não aparece. Veja a seção "Login com Google (opcional)". |
+| `MINIO_ENDPOINT` | Opcional. Endereço do servidor MinIO, com `https://` e **sem** barra no final. |
+| `MINIO_BUCKET` | Opcional. Nome do bucket (por exemplo `audioditado`). O bucket precisa existir e ser privado; o aplicativo não o cria. |
+| `MINIO_ACCESS_KEY` | Opcional. Chave de acesso do MinIO. De preferência use uma chave limitada ao bucket, com permissão de gravar, ler e apagar; evite o usuário root. |
+| `MINIO_SECRET_KEY` | Opcional. Segredo dessa chave de acesso. Nunca o versione. |
+| `MINIO_REGION` | Opcional. Região; se vazia, vale `us-east-1`. |
 | `PORT` | Porta da API. Padrão `3000`. |
 | `DOCS_USER` e `DOCS_PASSWORD` | Usuário e senha (Basic auth) da documentação em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`. |
 
@@ -61,6 +66,10 @@ Modelos do catálogo:
 | OpenRouter | `openai/whisper-large-v3-turbo`, `openai/whisper-large-v3`, `openai/whisper-1`, `fish-audio/transcribe-1-pro` |
 
 Só ficam selecionáveis os provedores cuja chave está preenchida no `backend/.env`; os demais aparecem desabilitados no painel. Preencha uma das chaves ou as duas. Sem nenhuma chave, a aplicação sobe normalmente e o envio de áudio responde 502.
+
+Sem as variáveis `MINIO_*`, o envio funciona normalmente, mas o áudio não é guardado e o histórico mostra "Áudio não guardado". Com elas preenchidas, o áudio de cada envio fica no MinIO e pode ser ouvido no histórico.
+
+Privacidade: o áudio é dado pessoal. Ele fica no MinIO e é apagado quando a transcrição é excluída (melhor esforço: se o MinIO estiver fora do ar na exclusão, o objeto pode permanecer no bucket).
 
 Para gerar um `JWT_SECRET` aleatório no PowerShell (cole o resultado no `backend\.env`):
 
@@ -127,7 +136,8 @@ Abra http://localhost:5173.
 3. **Enviar áudio:** em `/app`, escolha um arquivo (`mp3`, `m4a`, `wav`, `ogg`, `webm`, `flac`, `mp4` ou `mpeg`, até 25 MB) e o idioma, e clique em Enviar áudio. O texto aparece na tela.
 4. **Histórico:** na mesma página, cada transcrição pode ser vista por inteiro ou excluída.
 5. **Administração:** o administrador vê o link Administração e acessa `/app/admin`, onde lista as contas e altera nome, papel e situação (ativa ou inativa). O administrador não consegue desativar a própria conta. Usuário comum que abrir `/app/admin` é levado a `/app`.
-6. **Escolher o modelo de transcrição:** em `/app/admin`, abra a aba "Transcrição", selecione um provedor e modelo e clique em Salvar. A escolha vale para todos os usuários e passa a valer no próximo envio de áudio.
+6. **Ouvir o áudio:** no histórico (e também na transcrição aberta com Ver e no resultado recém-criado), clique em Ouvir; o áudio é baixado e tocado no player do navegador. Transcrições sem áudio guardado mostram "Áudio não guardado".
+7. **Escolher o modelo de transcrição:** em `/app/admin`, abra a aba "Transcrição", selecione um provedor e modelo e clique em Salvar. A escolha vale para todos os usuários e passa a valer no próximo envio de áudio.
 
 ## 8. Documentação da API (`/docs`)
 
@@ -155,7 +165,7 @@ docs/DESIGN.md          sistema de design do frontend
 AGENTS.md               como trabalhar no repositório
 .env.example            nomes das variáveis, sem valores sensíveis
 docker-compose.yml      PostgreSQL local
-backend/src/            módulos: common, health, auth (senha e Google), users, transcriptions, settings
+backend/src/            módulos: common, health, auth (senha e Google), users, transcriptions, settings, storage
 backend/test/           testes e2e (supertest)
 frontend/src/           pages, components (ui, layout, auth), services, store, types
 ```
@@ -188,6 +198,10 @@ docker compose --env-file backend/.env up -d
 
 **Envio de áudio responde 502.** Falta a chave do provedor, ela é inválida ou o provedor está indisponível. Confira `GROQ_API_KEY` ou `OPENROUTER_API_KEY` e reinicie o backend. Se um administrador escolheu no painel (`/app/admin`, aba "Transcrição") um provedor cuja chave foi removida do `.env` depois, o envio também responde 502 e nada é gravado: preencha a chave de novo ou escolha outro provedor no painel.
 
+**Envio responde 502 "armazenamento de áudio indisponível".** O backend não conseguiu gravar o áudio no MinIO. Confira as variáveis `MINIO_*` no `backend/.env` e reinicie o backend: `InvalidAccessKeyId` indica chave de acesso ou segredo errados (ou trocados entre si); o endpoint deve ter `https://` e não ter barra no final; o bucket precisa existir; e a chave precisa de permissão para gravar, ler e apagar nele.
+
+**"Áudio não guardado" no histórico.** A transcrição é anterior à Etapa 12 ou o MinIO não estava configurado (variáveis `MINIO_*` vazias) no momento do envio. Elas não ganham áudio depois; envie o arquivo de novo com o MinIO configurado.
+
 **A transcrição de música sai errada.** Os modelos Whisper são feitos para fala. Em músicas, mesmo com o idioma correto, a transcrição pode sair com erros ou trechos faltando. Trocar o modelo no painel pode mudar o resultado, mas não há garantia de que melhore.
 
 ## 12. Divergências conhecidas da especificação
@@ -209,7 +223,8 @@ Ferramentas de IA foram usadas no **desenvolvimento** do projeto, conforme a se�
 | 2 a 9. Backend (usuários, autenticação, transcrição, histórico, administração), frontend (páginas, envio, histórico, administração) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 10. Login com Google (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 11. Provedor e modelo de transcrição no painel (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
+| 12. Permanência do áudio no MinIO (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 
-Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. Na Etapa 10, o plano foi proposto e aprovado antes da execução. O plano da Etapa 11 também foi proposto e aprovado antes da execução. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
+Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. Na Etapa 10, o plano foi proposto e aprovado antes da execução. O plano da Etapa 11 também foi proposto e aprovado antes da execução. O plano da Etapa 12 foi proposto e aprovado antes da execução. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
 
 O **Whisper** (via Groq ou OpenRouter) é usado apenas **em tempo de execução**, para transcrever os áudios enviados à aplicação. Ele não é ferramenta de desenvolvimento.
