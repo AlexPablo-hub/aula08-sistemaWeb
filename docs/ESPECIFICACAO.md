@@ -38,9 +38,9 @@ Fora do escopo:
 
 | Papel | Pode |
 |---|---|
-| Visitante (sem login) | Ver a página inicial, cadastrar-se, entrar |
-| Usuário (`user`) | Tudo do visitante logado: enviar áudio, ver e excluir as próprias transcrições |
-| Administrador (`admin`) | Tudo do usuário, mais listar e gerenciar contas |
+| Visitante (sem login) | Ver a página inicial, cadastrar-se e entrar (com e-mail e senha ou com conta Google) |
+| Usuário (`user`) | Tudo do visitante logado: enviar áudio, ver, ouvir, renomear (título) e excluir as próprias transcrições |
+| Administrador (`admin`) | Tudo do usuário, mais listar e gerenciar contas e escolher o provedor e o modelo de transcrição |
 
 O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído pelo administrador inicial (seção 8) ou por outro administrador.
 
@@ -296,7 +296,7 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
 
 ### Etapa 4 — Envio e transcrição
 
-- Entrega: `POST /api/transcriptions` com integração à Groq.
+- Entrega: `POST /api/transcriptions` com integração ao provedor de transcrição (inicialmente a Groq; o OpenRouter e a escolha do provedor no painel vieram na Etapa 11).
 - Aceite:
   - Envio de áudio válido (Volume 07, seção 1.3) retorna 201 com `text` não vazio.
   - Arquivo de tipo não aceito retorna 400.
@@ -383,6 +383,17 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
   - Sem armazenamento configurado, o envio retorna 201 com `hasAudio` falso e a rota de áudio retorna 404.
   - Transcrições antigas continuam listáveis (`hasAudio` falso).
   - Nenhuma resposta contém `audioKey`, `userId`, endereço do bucket ou credenciais.
+
+### Etapa 13 — Player de áudio no estilo do site
+
+- Entrega: componente `AudioPlayer` com controle próprio (botão de tocar e pausar, tempo atual e duração, barra de posição) no lugar do `<audio controls>` nativo do navegador; componente `Slider` no sistema de design; sem mudança de API.
+- Aceite:
+  - O botão alterna entre tocar e pausar, e o tempo atual e a duração aparecem em `font-mono`.
+  - A barra de posição mostra o ponto atual e permite mudá-lo por clique, arraste ou teclado.
+  - Só um áudio toca por vez.
+  - O player usa somente os tokens e componentes de `docs/DESIGN.md`; o `<audio>` nativo fica oculto, sem os controles do navegador.
+  - Em tela estreita, o player cabe em uma linha, sem estourar a largura.
+  - Arquivos que não informam a duração (alguns `webm` e `ogg`) tocam normalmente, mas a barra fica parada e o tempo mostra `--:--`.
 
 ### Etapa 14 — Edição do título
 

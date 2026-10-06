@@ -4,8 +4,8 @@ Este arquivo descreve como trabalhar neste repositório. A especificação do pr
 
 ## Pilha
 
-- Frontend: React + Vite + TypeScript, react-router-dom, axios, TanStack Query (dados do servidor), Zustand (sessão), react-hook-form + zod, Tailwind CSS v4, shadcn/ui, lucide-react.
-- Backend: NestJS + TypeScript, TypeORM + PostgreSQL 17, @nestjs/jwt + passport-jwt, bcryptjs, class-validator + class-transformer, multer.
+- Frontend: React + Vite + TypeScript, react-router-dom, axios, TanStack Query (dados do servidor), Zustand (sessão e tema), react-hook-form + zod, Tailwind CSS v4, shadcn/ui, lucide-react.
+- Backend: NestJS + TypeScript, TypeORM + PostgreSQL 18, @nestjs/jwt + passport-jwt, google-auth-library (login com Google), @aws-sdk/client-s3 (áudio no MinIO), @nestjs/swagger (`/docs`), bcryptjs, class-validator + class-transformer, multer.
 - Banco local: `docker compose --env-file backend/.env up -d` na raiz (somente PostgreSQL). A flag é necessária: o compose lê as credenciais de `backend/.env`.
 - Plataforma de desenvolvimento: Windows com PowerShell. Não use comandos Bash nem scripts `.sh`.
 
@@ -32,8 +32,8 @@ docs/DESIGN.md          sistema de design do frontend
 AGENTS.md               como trabalhar
 .env.example            nomes das variáveis, sem valores
 docker-compose.yml      PostgreSQL local
-backend/src/            módulos: common, health, auth, users, transcriptions
-frontend/src/           pages, components (ui, layout), services, store, types
+backend/src/            módulos: common, health, auth, users, transcriptions, settings, storage
+frontend/src/           pages, components (ui, layout, auth, transcriptions, admin), routes, services, store, lib, types
 ```
 
 Cada módulo do backend tem `dto/`, `entities/` quando houver tabela, o controlador, o serviço e o módulo.
@@ -54,7 +54,7 @@ Backend:
 - A resposta é um objeto de saída montado a partir da entidade. Nunca devolva uma entidade diretamente, porque ela contém `passwordHash`.
 - Dono do recurso: toda consulta a transcrição filtra por `userId` do token. Recurso de outro usuário retorna 404, não 403.
 - Papel `admin` é verificado pela guarda de papel, não por `if` dentro do serviço.
-- Senha: somente hash bcrypt. Nunca logue senha, token ou chave da Groq.
+- Senha: somente hash bcrypt. Nunca logue senha, token, chave de API (Groq, OpenRouter) nem credencial do MinIO.
 
 Frontend:
 
@@ -62,7 +62,7 @@ Frontend:
 - A URL da API é sempre relativa, começando com `/api`. Nunca escreva `http://localhost:3000` no código do frontend.
 - O token é injetado pelo interceptador de requisição. Páginas não leem nem montam o cabeçalho `Authorization`.
 - Resposta 401 é tratada pelo interceptador de resposta, que limpa a sessão.
-- Dados do servidor ficam no TanStack Query. Sessão (usuário e token) fica no Zustand. Não duplique um no outro.
+- Dados do servidor ficam no TanStack Query. Sessão (usuário e token) e a preferência de tema ficam no Zustand. Não duplique um no outro.
 - O frontend não tem `.env` e não guarda segredo.
 - Estilo: use somente os tokens e componentes de docs/DESIGN.md; sem cores, fontes ou sombras soltas.
 
@@ -100,7 +100,8 @@ Tipos:
 ## O que nunca fazer
 
 - Expor a porta 5432 em `0.0.0.0`.
-- Enviar a chave da Groq ao frontend ou a qualquer arquivo versionado.
+- Enviar chave de provedor de transcrição (Groq, OpenRouter) ou credencial do MinIO ao frontend, ao banco ou a qualquer arquivo versionado.
+- Entregar o endereço do bucket ao navegador: o áudio só sai pelo backend, com checagem de dono.
 - Aceitar `role` no cadastro.
 - Retornar `passwordHash` em qualquer resposta.
 - Permitir que um usuário leia ou exclua transcrição de outro.

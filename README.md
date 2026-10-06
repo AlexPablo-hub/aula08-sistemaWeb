@@ -169,7 +169,7 @@ AGENTS.md               como trabalhar no repositório
 docker-compose.yml      PostgreSQL local
 backend/src/            módulos: common, health, auth (senha e Google), users, transcriptions, settings, storage
 backend/test/           testes e2e (supertest)
-frontend/src/           pages, components (ui, layout, auth), services, store, types
+frontend/src/           pages, components (ui, layout, auth, transcriptions, admin), routes, services, store, lib, types
 ```
 
 ## 11. Solução de problemas
@@ -221,7 +221,7 @@ Ferramentas de IA foram usadas no **desenvolvimento** do projeto. Esta seção d
 
 | Etapa | Ferramenta | Modelo |
 |---|---|---|
-| 1. Infraestrutura e esqueleto do backend | Claude Code (Anthropic) | [confirmar o modelo usado na Etapa 1] |
+| 1. Infraestrutura e esqueleto do backend | Claude Code (Anthropic) |
 | 2 a 9. Backend (usuários, autenticação, transcrição, histórico, administração), frontend (páginas, envio, histórico, administração) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 10. Login com Google (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 11. Provedor e modelo de transcrição no painel (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
