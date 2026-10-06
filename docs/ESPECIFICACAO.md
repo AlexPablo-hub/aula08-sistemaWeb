@@ -1,6 +1,6 @@
 # Ditado — Especificação
 
-Versão: 0.6 (acrescenta a edição do título da transcrição; a 0.5 acrescentou a permanência do áudio enviado, guardado num bucket MinIO e reproduzido no histórico; a 0.4 acrescentou a escolha do provedor e do modelo de transcrição no painel do administrador)
+Versão: 0.7 (acrescenta o tema claro e escuro, alternado por um botão; a 0.6 acrescentou a edição do título da transcrição; a 0.5 acrescentou a permanência do áudio enviado, guardado num bucket MinIO e reproduzido no histórico; a 0.4 acrescentou a escolha do provedor e do modelo de transcrição no painel do administrador)
 
 ## 1. Visão geral
 
@@ -22,6 +22,7 @@ Dentro do escopo:
 - Administrador inicial criado por configuração na inicialização.
 - Administrador escolhe, no painel, o provedor e o modelo de transcrição (configuração global).
 - Áudio enviado fica guardado (bucket MinIO, compatível com S3) e pode ser reproduzido no histórico.
+- Tema claro e escuro, alternados por um botão; a escolha fica salva no navegador.
 - Documentação interativa da API (Swagger) em `/docs`, protegida por autenticação Basic. Acrescentada pelo grupo depois da versão 0.1; não faz parte do contrato da API.
 
 Fora do escopo:
@@ -215,6 +216,7 @@ Regras de tela:
 - O histórico e o diálogo da transcrição permitem editar o título (ação "Editar título"); o `fileName` continua visível como dado secundário.
 - O histórico e o diálogo da transcrição mostram o botão "Ouvir" quando `hasAudio` é verdadeiro; caso contrário mostram "Áudio não guardado".
 - Rota desconhecida mostra uma página de "não encontrada" com link para `/`.
+- Todas as telas, públicas e internas, têm tema claro e escuro; o botão de alternar tema fica no cabeçalho (e nas telas de entrar e cadastrar); sem escolha salva, vale a preferência do sistema operacional.
 - A aparência segue `docs/DESIGN.md` (tokens de cor, fontes e componentes shadcn/ui).
 
 ## 8. Configuração
@@ -393,3 +395,13 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
   - `fileName`, `text`, `language` e o áudio ficam inalterados.
   - Transcrições antigas (sem título salvo) listam `title` igual ao `fileName`.
   - Nenhuma resposta contém `userId` nem `audioKey`.
+
+### Etapa 15 — Tema escuro
+
+- Entrega: tema escuro em todas as telas, botão de alternar entre claro e escuro, escolha guardada no navegador. Não há mudança de API nem de banco: o tema é preferência do navegador.
+- Aceite:
+  - O botão alterna o tema, e a escolha persiste após recarregar a página.
+  - Sem escolha salva, o tema segue a preferência do sistema operacional.
+  - Todas as telas ficam legíveis nos dois temas, com contraste mínimo AA de 4,5:1 para texto.
+  - A página não pisca o tema errado ao carregar.
+  - O botão do Google e as notificações acompanham o tema.
