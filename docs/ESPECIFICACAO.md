@@ -1,6 +1,6 @@
 # Ditado — Especificação
 
-Versão: 0.4 (acrescenta a escolha do provedor e do modelo de transcrição no painel do administrador; as diferenças em relação às versões anteriores estão na seção 12)
+Versão: 0.5 (acrescenta a permanência do áudio enviado, guardado num bucket MinIO e reproduzido no histórico; a 0.4 acrescentou a escolha do provedor e do modelo de transcrição no painel do administrador; as diferenças em relação às versões anteriores estão na seção 12)
 
 ## 1. Visão geral
 
@@ -20,6 +20,7 @@ Dentro do escopo:
 - Área administrativa: listar contas, alterar nome e papel, desativar conta.
 - Administrador inicial criado por configuração na inicialização.
 - Administrador escolhe, no painel, o provedor e o modelo de transcrição (configuração global).
+- Áudio enviado fica guardado (bucket MinIO, compatível com S3) e pode ser reproduzido no histórico.
 - Documentação interativa da API (Swagger) em `/docs`, protegida por autenticação Basic. Acrescentada pelo grupo depois da versão 0.1; não faz parte do contrato da API.
 
 Fora do escopo:
@@ -64,8 +65,13 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 | userId | UUID | obrigatório; referencia `users.id`; exclusão de usuário não é prevista |
 | fileName | texto (até 255) | nome original do arquivo enviado |
 | language | texto (2 letras) | código ISO 639-1, padrão `pt` |
-| text | texto longo | transcrição retornada pela Groq |
+| text | texto longo | transcrição retornada pelo provedor |
+| audioKey | texto (até 255), opcional | chave do objeto do áudio no bucket (`audio/{userId}/{id}.{ext}`); nulo quando o áudio não foi guardado; nunca retornado pela API |
+| audioMimeType | texto (até 100), opcional | tipo MIME do áudio guardado; nulo quando não há áudio |
+| audioSize | inteiro, opcional | tamanho do áudio guardado, em bytes; nulo quando não há áudio |
 | createdAt | data/hora | automático; ordenação do histórico |
+
+Transcrições anteriores à versão 0.5 ficam com `audioKey`, `audioMimeType` e `audioSize` nulos (sem áudio guardado).
 
 ### settings
 
@@ -99,6 +105,11 @@ Configuração global da aplicação, uma linha por chave. Hoje só existe a cha
 - **RN18 — Escolha válida:** só se pode escolher uma combinação provedor + modelo do catálogo fixo da seção 8, e somente se a chave do provedor estiver configurada no servidor. Caso contrário, retorna 400.
 - **RN19 — Padrão:** sem escolha salva, vale o primeiro provedor com chave configurada, na ordem `groq`, `openrouter`, com o modelo padrão `whisper-large-v3-turbo` na Groq e `openai/whisper-large-v3-turbo` no OpenRouter.
 - **RN20 — Escolha indisponível:** se a escolha salva ficar indisponível (a chave do provedor foi removida), o envio de áudio retorna 502 com mensagem de serviço não configurado e nada é gravado (RN9).
+- **RN21 — Áudio guardado:** com o armazenamento configurado (seção 8), o áudio de cada envio fica guardado no bucket enquanto a transcrição existir. A ordem do envio é: transcrever, guardar o áudio e só então gravar a linha.
+- **RN22 — Só o dono ouve:** somente o dono da transcrição lê o áudio. Transcrição inexistente, de outro usuário ou sem áudio guardado retorna 404 (RN5).
+- **RN23 — Exclusão leva o áudio:** excluir a transcrição apaga a linha e, em seguida, o objeto do bucket, em melhor esforço. Falha ao apagar o objeto não impede a exclusão: fica um aviso no log com a chave do objeto.
+- **RN24 — Falha do armazenamento:** com o armazenamento configurado, erro ou indisponibilidade ao guardar o áudio retorna 502 e nada é gravado (nem linha, nem objeto), como na RN9.
+- **RN25 — Sem armazenamento:** com o armazenamento não configurado, o envio funciona normalmente, sem guardar o áudio (`hasAudio` falso), a aplicação sobe e a rota de áudio retorna 404.
 
 ## 6. Contrato da API
 
@@ -131,12 +142,15 @@ O `GET /api/auth/google` existe porque o frontend não tem `.env`: ele descobre 
 | Método | Caminho | Protegida | Sucesso | Erros |
 |---|---|---|---|---|
 | GET | `/api/transcriptions` | sim | 200 lista de transcrições do usuário | 401 |
-| POST | `/api/transcriptions` | sim | 201 transcrição criada | 400 (arquivo ausente, tipo não aceito, idioma inválido), 401, 413 (acima de 25 MB), 502 (falha do provedor de transcrição) |
+| POST | `/api/transcriptions` | sim | 201 transcrição criada | 400 (arquivo ausente, tipo não aceito, idioma inválido), 401, 413 (acima de 25 MB), 502 (falha do provedor de transcrição ou do armazenamento do áudio) |
 | GET | `/api/transcriptions/:id` | sim | 200 transcrição | 401, 404 (inexistente ou de outro usuário) |
+| GET | `/api/transcriptions/:id/audio` | sim | 200 com o arquivo de áudio (`Content-Type` do áudio original e `Content-Length`) | 401, 404 (inexistente, de outro usuário ou sem áudio guardado) |
 | DELETE | `/api/transcriptions/:id` | sim | 204 sem corpo | 401, 404 (inexistente ou de outro usuário) |
 
 Envio (`multipart/form-data`): campo `file` (obrigatório) e campo `language` (opcional, padrão `pt`).
-Objeto de transcrição: `{ "id", "fileName", "language", "text", "createdAt" }`.
+Objeto de transcrição: `{ "id", "fileName", "language", "text", "hasAudio", "createdAt" }`. `hasAudio` é booleano: verdadeiro quando o áudio ficou guardado. O objeto nunca traz `userId` nem a chave do objeto no bucket.
+
+`GET /api/transcriptions/:id/audio` devolve os bytes do áudio pelo backend, que confere o dono; o navegador nunca recebe o endereço do bucket nem credenciais. A resposta traz `Cache-Control: private, no-store`. Os erros têm o formato padrão (abaixo).
 
 ### Usuários (administrador)
 
@@ -179,7 +193,7 @@ Todas as respostas de erro têm a forma `{ "statusCode", "message", "error" }`.
 | `/` | público | Apresentação do Ditado, botões Entrar e Cadastrar |
 | `/cadastrar` | público | Formulário de nome, e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
 | `/entrar` | público | Formulário de e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
-| `/app` | usuário logado | Envio de áudio com escolha de idioma; histórico com ver e excluir |
+| `/app` | usuário logado | Envio de áudio com escolha de idioma; histórico com ver, ouvir e excluir |
 | `/app/admin` | papel `admin` | Seção "Contas": lista de contas, com alteração de nome, papel e status ativo. Seção "Transcrição": escolha do provedor e do modelo de transcrição |
 
 Regras de tela:
@@ -189,6 +203,7 @@ Regras de tela:
 - Resposta 401 de qualquer chamada limpa a sessão e leva a `/entrar`.
 - Estados de carregamento e de erro aparecem em toda chamada à API.
 - Envio de arquivo mostra o nome do arquivo e recusa, antes do envio, tipo ou tamanho inválidos.
+- O histórico e o diálogo da transcrição mostram o botão "Ouvir" quando `hasAudio` é verdadeiro; caso contrário mostram "Áudio não guardado".
 - Rota desconhecida mostra uma página de "não encontrada" com link para `/`.
 - A aparência segue `docs/DESIGN.md` (tokens de cor, fontes e componentes shadcn/ui).
 
@@ -204,6 +219,7 @@ Os nomes das variáveis estão em `.env.example`. Os valores reais ficam em `bac
 - Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`. O padrão de desenvolvimento de `DATABASE_PORT` é `5433` (seção 12). O `docker-compose.yml` lê essas variáveis de `backend/.env`; por isso o banco sobe com `docker compose --env-file backend/.env up -d`.
 - `DOCS_USER` e `DOCS_PASSWORD`: credenciais Basic do Swagger em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`; troque fora do ambiente local.
 - `GOOGLE_CLIENT_ID`: client ID OAuth do Google (público, termina em `.apps.googleusercontent.com`). É usado como `audience` na validação do ID token. Sem ele, `GET /api/auth/google` retorna 404 e `POST /api/auth/google` retorna 401 com mensagem de login com Google não configurado. O client secret não é usado neste fluxo e não deve ficar no repositório.
+- Armazenamento do áudio (MinIO, compatível com S3): `MINIO_ENDPOINT` (endereço `https://...` do servidor), `MINIO_BUCKET` (nome do bucket), `MINIO_ACCESS_KEY` e `MINIO_SECRET_KEY` (credenciais) e `MINIO_REGION` (opcional; padrão `us-east-1`). Se qualquer uma das quatro primeiras estiver vazia, o armazenamento fica desligado: a aplicação sobe, o envio transcreve sem guardar o áudio e a rota de áudio retorna 404 (RN25). As credenciais nunca vão para o frontend, para o banco nem para o repositório.
 - `PORT`: porta do backend (padrão `3000`).
 
 Catálogo fixo de opções de transcrição (a disponibilidade depende da chave do provedor):
@@ -231,6 +247,8 @@ O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativ
 - Banco: a porta do banco (5433 no host, 5432 no contêiner) publica-se somente em `127.0.0.1`.
 - Logs: as chaves dos provedores (Groq, OpenRouter) e o token nunca aparecem em log.
 - Painel de transcrição: as chaves dos provedores nunca são gravadas no banco nem devolvidas pela API; o painel mostra apenas se cada provedor está disponível.
+- Áudio guardado: o bucket é privado. O acesso ao áudio é somente pelo backend, com checagem de dono (RN22); o navegador nunca recebe o endereço do bucket. As credenciais do MinIO ficam só no backend e nunca aparecem em log.
+- Áudio é dado pessoal e fica num servidor externo (MinIO). Risco registrado: quem tiver acesso ao bucket lê os áudios. Mitigação: bucket privado e credenciais restritas; excluir a transcrição apaga o áudio (RN23).
 - Esquema do banco: `synchronize: true` durante o desenvolvimento. Migrações versionadas ficam para a Aula 08.
 
 ## 10. Plano de etapas
@@ -341,6 +359,19 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
   - Escolha salva sem chave: o envio retorna 502 e nada é gravado.
   - Nenhuma resposta contém chaves.
 
+### Etapa 12 — Permanência do áudio
+
+- Entrega: serviço de armazenamento (cliente S3 para o MinIO); campos `audioKey`, `audioMimeType` e `audioSize` em `transcriptions`; `hasAudio` no objeto de transcrição; `GET /api/transcriptions/:id/audio`; exclusão da transcrição apaga o objeto; variáveis `MINIO_*`; botão "Ouvir" no histórico e no diálogo.
+- Aceite:
+  - O envio com armazenamento configurado guarda o objeto (`audio/{userId}/{id}.{ext}`) e a resposta tem `hasAudio` verdadeiro.
+  - O dono baixa o áudio pela rota e o conteúdo e o `Content-Type` batem com o enviado.
+  - Outro usuário recebe 404; sem token, 401; id malformado, 404.
+  - Excluir a transcrição apaga o objeto, e a leitura seguinte do áudio retorna 404; falha ao apagar o objeto não impede a exclusão (204).
+  - Falha do armazenamento retorna 502 e nada é gravado; falha do provedor de transcrição retorna 502 e nenhum objeto é criado.
+  - Sem armazenamento configurado, o envio retorna 201 com `hasAudio` falso e a rota de áudio retorna 404.
+  - Transcrições antigas continuam listáveis (`hasAudio` falso).
+  - Nenhuma resposta contém `audioKey`, `userId`, endereço do bucket ou credenciais.
+
 ## 11. Verificação final
 
 - Todas as etapas com critérios de aceite cumpridos e registrados em commits separados.
@@ -349,7 +380,7 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
 
 ## 12. Divergências em relação às versões anteriores
 
-Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3 e 0.4, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as sobre a configuração de transcrição, da 0.4; as demais, da 0.2.
+Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3, 0.4 e 0.5, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as sobre a configuração de transcrição, da 0.4; as sobre o áudio guardado, da 0.5; as demais, da 0.2.
 
 | Assunto | Versão 0.1 | Vale agora | Motivo |
 |---|---|---|---|
@@ -368,6 +399,9 @@ Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3 e
 | `TRANSCRIPTION_PROVIDER`, `GROQ_MODEL`, `OPENROUTER_MODEL` | variáveis de ambiente | removidas; valem as escolhas do painel, com padrão na RN19 | Trocar de provedor ou modelo não deve exigir editar o `.env` e reiniciar. Linhas antigas no `.env` ficam sem efeito. |
 | Configuração de transcrição | por instalação, no `.env` | global, no banco (tabela `settings`), alterada só por administrador | Uma escolha única para todos os usuários, feita pelo site. As chaves continuam só no `.env`. |
 | Modelo `fish-audio/transcribe-1-pro` | não existia | opção do catálogo no OpenRouter, chamada por JSON com `input_audio` | Pedido do grupo. O modelo existe na lista pública do OpenRouter. |
+| Áudio enviado | descartado depois da transcrição; só o texto era gravado | guardado num bucket MinIO enquanto a transcrição existir; `hasAudio` no objeto de transcrição (versão 0.5) | Pedido do grupo: ouvir de novo o áudio no histórico. Sem MinIO configurado, o envio continua funcionando sem guardar o áudio. |
+| Armazenamento | não existia | MinIO (compatível com S3), bucket privado, variáveis `MINIO_*` só no backend | O áudio é dado pessoal; o bucket não é público e as credenciais não saem do servidor. |
+| Reprodução do áudio | não existia | `GET /api/transcriptions/:id/audio`, servida pelo backend com checagem de dono | O navegador nunca recebe o endereço do bucket nem credenciais; transcrição de outro usuário continua 404 (RN5). |
 
 Pontos que a especificação continua sem decidir:
 
