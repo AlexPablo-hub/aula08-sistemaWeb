@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { NavLink } from "react-router-dom"
 import { cn } from "@/lib/utils"
+import { ThemeToggle } from "./ThemeToggle"
 
 export type NavItem = { to: string; label: string }
 
@@ -40,7 +41,10 @@ export function AppShell({ children, navigation = [], userArea }: AppShellProps)
               </NavLink>
             ))}
           </nav>
-          {userArea ? <div className="flex items-center gap-4 text-sm">{userArea}</div> : null}
+          <div className="flex items-center gap-4 text-sm">
+            {userArea}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <main className="flex-1">{children}</main>

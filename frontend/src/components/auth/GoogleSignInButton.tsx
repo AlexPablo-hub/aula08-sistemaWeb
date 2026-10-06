@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { describeAuthError } from '@/lib/errors'
 import { getGoogleConfig, loginWithGoogle } from '@/services/auth'
 import { useAuthStore } from '@/store/authStore'
+import { useEffectiveTheme } from '@/store/themeStore'
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 
@@ -44,6 +45,7 @@ type GoogleSignInButtonProps = {
 export function GoogleSignInButton({ text = 'continue_with' }: GoogleSignInButtonProps) {
   const navigate = useNavigate()
   const setSession = useAuthStore((s) => s.setSession)
+  const theme = useEffectiveTheme()
   const containerRef = useRef<HTMLDivElement>(null)
   const [scriptReady, setScriptReady] = useState(false)
   const [scriptFailed, setScriptFailed] = useState(false)
@@ -88,17 +90,22 @@ export function GoogleSignInButton({ text = 'continue_with' }: GoogleSignInButto
     }
   }, [clientId])
 
+  // initialize roda uma vez por client ID; trocar o tema só renderiza o botão de novo.
   useEffect(() => {
-    const container = containerRef.current
-    if (!clientId || !scriptReady || !container || !window.google) return
+    if (!clientId || !scriptReady || !window.google) return
     window.google.accounts.id.initialize({
       client_id: clientId,
       auto_select: false,
       callback: (response) => submitRef.current(response.credential),
     })
+  }, [clientId, scriptReady])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!clientId || !scriptReady || !container || !window.google) return
     container.replaceChildren()
     window.google.accounts.id.renderButton(container, {
-      theme: 'outline',
+      theme: theme === 'dark' ? 'filled_black' : 'outline',
       size: 'large',
       text,
       shape: 'rectangular',
@@ -106,7 +113,7 @@ export function GoogleSignInButton({ text = 'continue_with' }: GoogleSignInButto
       width: Math.min(400, Math.max(200, container.clientWidth || 384)),
     })
     return () => container.replaceChildren()
-  }, [clientId, scriptReady, text])
+  }, [clientId, scriptReady, text, theme])
 
   if (!clientId || scriptFailed) return null
 

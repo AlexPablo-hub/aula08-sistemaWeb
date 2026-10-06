@@ -1,5 +1,7 @@
 import type { ReactNode } from "react"
 
+import { ThemeToggle } from "./ThemeToggle"
+
 type AuthLayoutProps = {
   title: string
   description?: string
@@ -17,18 +19,21 @@ type AuthLayoutProps = {
 export function AuthLayout({ title, description, children, footer }: AuthLayoutProps) {
   return (
     <div className="grid min-h-screen grid-cols-1 bg-background lg:grid-cols-2">
-      <aside className="flex flex-col justify-between border-b border-foreground bg-ink px-4 py-5 text-surface lg:border-r lg:border-b-0 lg:px-12 lg:py-12">
+      <aside className="flex flex-col justify-between border-b border-panel-edge bg-panel px-4 py-5 text-panel-foreground lg:border-r lg:border-b-0 lg:px-12 lg:py-12">
         <p className="font-serif text-2xl font-semibold tracking-tight lg:text-4xl">Ditado</p>
         <div className="hidden max-w-md lg:block">
           <p className="font-serif text-3xl leading-tight font-medium text-balance">
             Envie o áudio. Receba o texto.
           </p>
-          <p className="mt-4 border-t border-ink-soft pt-4 font-mono text-sm text-rule">
+          <p className="mt-4 border-t border-panel-line pt-4 font-mono text-sm text-panel-muted">
             Cada transcrição fica guardada no seu histórico.
           </p>
         </div>
       </aside>
-      <main className="flex items-center justify-center px-4 py-10 lg:px-12">
+      <main className="relative flex items-center justify-center px-4 py-10 lg:px-12">
+        <div className="absolute top-3 right-4 lg:top-6 lg:right-12">
+          <ThemeToggle />
+        </div>
         <div className="w-full max-w-sm">
           <h1 className="text-2xl lg:text-3xl">{title}</h1>
           {description ? <p className="mt-2 text-muted-foreground">{description}</p> : null}

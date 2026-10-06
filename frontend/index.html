@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Aplica o tema antes do React para a página não piscar o tema errado.
+      // Deve concordar com src/lib/theme.ts: chave 'ditado-theme', valores 'light' | 'dark'.
+      try {
+        var stored = null
+        try {
+          stored = localStorage.getItem('ditado-theme')
+        } catch (e) {}
+        var dark =
+          stored === 'dark' ||
+          (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+      } catch (e) {}
+    </script>
     <title>Ditado</title>
   </head>
   <body>

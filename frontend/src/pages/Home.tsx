@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ThemeToggle } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 
 const formats = ['mp3', 'm4a', 'wav', 'ogg', 'webm', 'flac', 'mp4', 'mpeg']
@@ -10,6 +11,7 @@ export default function Home() {
         <div className="mx-auto flex h-16 w-full max-w-page items-center justify-between px-4 md:px-8">
           <p className="font-serif text-2xl font-semibold tracking-tight">Ditado</p>
           <nav aria-label="Conta" className="flex items-center gap-2">
+            <ThemeToggle />
             <Button asChild variant="ghost" size="sm">
               <Link to="/entrar">Entrar</Link>
             </Button>

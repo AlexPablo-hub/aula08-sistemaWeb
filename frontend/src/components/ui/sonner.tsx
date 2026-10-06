@@ -1,10 +1,12 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { useEffectiveTheme } from "@/store/themeStore"
 
-// Tema claro apenas; o estilo vem dos tokens de index.css.
+// O tema efetivo vem do themeStore; as cores vêm dos tokens de index.css.
 const Toaster = ({ ...props }: ToasterProps) => {
+  const theme = useEffectiveTheme()
   return (
     <Sonner
-      theme="light"
+      theme={theme}
       className="toaster group"
       toastOptions={{
         classNames: {

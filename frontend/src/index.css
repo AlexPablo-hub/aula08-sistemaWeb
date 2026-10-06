@@ -4,8 +4,8 @@
 @import "@fontsource-variable/instrument-sans";
 @import "@fontsource-variable/jetbrains-mono";
 
-/* Apenas tema claro; o modo escuro nunca ativa. */
-@custom-variant dark (&:is(.dark *));
+/* Tema escuro: a classe `dark` no <html> troca os tokens (bloco `.dark` abaixo). */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /*
  * Sistema de design do Ditado: todos os tokens ficam neste arquivo.
@@ -30,6 +30,14 @@
   --color-success-wash: #e4ecda;
   --color-danger-ink: #8a2a1f;
   --color-danger-wash: #f4e1da;
+  --color-scrim: #1c1a1666;
+
+  /* Painel de marca das telas de entrar e cadastrar (escuro nos dois temas). */
+  --color-panel: var(--color-ink);
+  --color-panel-foreground: var(--color-surface);
+  --color-panel-muted: var(--color-rule);
+  --color-panel-line: var(--color-ink-soft);
+  --color-panel-edge: var(--color-ink);
 
   /* Nomes semânticos usados pelos componentes shadcn. */
   --color-background: var(--color-paper);
@@ -88,6 +96,38 @@
   --container-page: 72rem;
 }
 
+/*
+ * Tema escuro (papel e tinta invertidos, preto quente). Só os valores mudam;
+ * os nomes semânticos acima (background, card, primary...) seguem os tokens.
+ * Razões de contraste calculadas em docs/DESIGN.md.
+ */
+.dark {
+  --color-paper: #14120f;
+  --color-surface: #1c1a16;
+  --color-ink: #ede7d9;
+  --color-ink-soft: #a39b8c;
+  --color-rule: #34302a;
+  --color-wash: #25221d;
+  --color-accent-ink: #e2593b;
+  --color-accent-ink-strong: #ec735a;
+  --color-success-ink: #8fcb9b;
+  --color-success-wash: #1b2a1f;
+  --color-danger-ink: #f0907c;
+  --color-danger-wash: #34201b;
+  --color-scrim: #0a090899;
+
+  /* Texto sobre o acento é escuro; o campo de formulário tem borda mais forte (3:1). */
+  --color-primary-foreground: var(--color-paper);
+  --color-input: #756e60;
+
+  /* O painel de marca fica uma superfície acima do fundo, com linha divisória. */
+  --color-panel: var(--color-surface);
+  --color-panel-foreground: var(--color-ink);
+  --color-panel-muted: var(--color-ink-soft);
+  --color-panel-line: var(--color-rule);
+  --color-panel-edge: var(--color-rule);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -95,6 +135,10 @@
 
   html {
     color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
