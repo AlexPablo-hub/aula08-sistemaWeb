@@ -1,8 +1,17 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserResponseDto, toUserResponse } from './dto/user-response.dto';
 import { Role, User } from './entities/user.entity';
 
 export interface CreateUserInput {
@@ -31,6 +40,43 @@ export class UsersService implements OnApplicationBootstrap {
 
   findById(id: string): Promise<User | null> {
     return this.users.findOne({ where: { id } });
+  }
+
+  async findAll(): Promise<UserResponseDto[]> {
+    const list = await this.users.find({
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+    return list.map(toUserResponse);
+  }
+
+  // O acesso de administrador já foi verificado pela RolesGuard; aqui só a RN4.
+  async update(
+    adminId: string,
+    id: string,
+    dto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    if (
+      dto.name === undefined &&
+      dto.role === undefined &&
+      dto.active === undefined
+    ) {
+      throw new BadRequestException(
+        'Informe ao menos um campo: name, role ou active.',
+      );
+    }
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+    if (dto.active === false && id === adminId) {
+      throw new ConflictException(
+        'Um administrador não pode desativar a própria conta.',
+      );
+    }
+    if (dto.name !== undefined) user.name = dto.name.trim();
+    if (dto.role !== undefined) user.role = dto.role;
+    if (dto.active !== undefined) user.active = dto.active;
+    return toUserResponse(await this.users.save(user));
   }
 
   async create(input: CreateUserInput): Promise<User> {
