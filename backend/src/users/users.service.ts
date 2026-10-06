@@ -29,6 +29,10 @@ export class UsersService implements OnApplicationBootstrap {
     return this.users.findOne({ where: { email: email.trim().toLowerCase() } });
   }
 
+  findById(id: string): Promise<User | null> {
+    return this.users.findOne({ where: { id } });
+  }
+
   async create(input: CreateUserInput): Promise<User> {
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = this.users.create({
