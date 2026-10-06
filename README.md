@@ -45,16 +45,22 @@ Preencha as variáveis:
 | `JWT_EXPIRES_IN` | Validade do token. Padrão `1d`. |
 | `ADMIN_EMAIL` | E-mail do administrador inicial, criado na primeira inicialização se não existir. |
 | `ADMIN_PASSWORD` | Senha do administrador inicial (mínimo de 8 caracteres; guardada só como hash). |
-| `TRANSCRIPTION_PROVIDER` | `groq` ou `openrouter`. Vazio: usa o Groq se `GROQ_API_KEY` estiver preenchida e, senão, o OpenRouter se `OPENROUTER_API_KEY` estiver preenchida. |
 | `GROQ_API_KEY` | Chave pessoal do Groq (começa com `gsk_`). |
-| `GROQ_MODEL` | Modelo do Groq. Padrão `whisper-large-v3-turbo`. |
 | `OPENROUTER_API_KEY` | Chave pessoal do OpenRouter (começa com `sk-or-`). |
-| `OPENROUTER_MODEL` | Modelo do OpenRouter. Padrão `openai/whisper-large-v3-turbo`. |
 | `GOOGLE_CLIENT_ID` | Opcional. Client ID OAuth do Google (termina em `.apps.googleusercontent.com`; é público). Sem ele, o botão "Entrar com Google" não aparece. Veja a seção "Login com Google (opcional)". |
 | `PORT` | Porta da API. Padrão `3000`. |
 | `DOCS_USER` e `DOCS_PASSWORD` | Usuário e senha (Basic auth) da documentação em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`. |
 
-Use só um provedor: preencha as variáveis do Groq **ou** as do OpenRouter. Sem nenhuma chave, a aplicação sobe normalmente e o envio de áudio responde 502.
+Provedor e modelo de transcrição **não** são mais variáveis do `.env`: um administrador os escolhe em `/app/admin`, na aba "Transcrição". A escolha vale para todos os usuários e fica guardada no banco (tabela `settings`). Quando nada foi escolhido, vale o padrão: Groq se `GROQ_API_KEY` estiver preenchida, senão OpenRouter se `OPENROUTER_API_KEY` estiver preenchida, com o modelo Whisper Large v3 Turbo (`whisper-large-v3-turbo` na Groq e `openai/whisper-large-v3-turbo` no OpenRouter). Linhas antigas `TRANSCRIPTION_PROVIDER`, `GROQ_MODEL` e `OPENROUTER_MODEL` no seu `.env` ficam sem efeito.
+
+Modelos do catálogo:
+
+| Provedor | Modelos |
+|---|---|
+| Groq | `whisper-large-v3-turbo`, `whisper-large-v3` |
+| OpenRouter | `openai/whisper-large-v3-turbo`, `openai/whisper-large-v3`, `openai/whisper-1`, `fish-audio/transcribe-1-pro` |
+
+Só ficam selecionáveis os provedores cuja chave está preenchida no `backend/.env`; os demais aparecem desabilitados no painel. Preencha uma das chaves ou as duas. Sem nenhuma chave, a aplicação sobe normalmente e o envio de áudio responde 502.
 
 Para gerar um `JWT_SECRET` aleatório no PowerShell (cole o resultado no `backend\.env`):
 
@@ -121,6 +127,7 @@ Abra http://localhost:5173.
 3. **Enviar áudio:** em `/app`, escolha um arquivo (`mp3`, `m4a`, `wav`, `ogg`, `webm`, `flac`, `mp4` ou `mpeg`, até 25 MB) e o idioma, e clique em Enviar áudio. O texto aparece na tela.
 4. **Histórico:** na mesma página, cada transcrição pode ser vista por inteiro ou excluída.
 5. **Administração:** o administrador vê o link Administração e acessa `/app/admin`, onde lista as contas e altera nome, papel e situação (ativa ou inativa). O administrador não consegue desativar a própria conta. Usuário comum que abrir `/app/admin` é levado a `/app`.
+6. **Escolher o modelo de transcrição:** em `/app/admin`, abra a aba "Transcrição", selecione um provedor e modelo e clique em Salvar. A escolha vale para todos os usuários e passa a valer no próximo envio de áudio.
 
 ## 8. Documentação da API (`/docs`)
 
@@ -148,7 +155,7 @@ docs/DESIGN.md          sistema de design do frontend
 AGENTS.md               como trabalhar no repositório
 .env.example            nomes das variáveis, sem valores sensíveis
 docker-compose.yml      PostgreSQL local
-backend/src/            módulos: common, health, auth (senha e Google), users, transcriptions
+backend/src/            módulos: common, health, auth (senha e Google), users, transcriptions, settings
 backend/test/           testes e2e (supertest)
 frontend/src/           pages, components (ui, layout, auth), services, store, types
 ```
@@ -179,7 +186,9 @@ docker compose --env-file backend/.env up -d
 
 **Erro do Google ao clicar no botão.** `origin_mismatch` ou `invalid_client` indica que a origem não está cadastrada ou foi digitada diferente (por exemplo `127.0.0.1` em vez de `localhost`, ou barra no final) em Origens JavaScript autorizadas, ou que o client ID está errado; aguarde alguns minutos após mudar. "Acesso bloqueado" (access blocked) indica que o app está em modo Teste e o e-mail usado não foi adicionado como usuário de teste na tela de consentimento.
 
-**Envio de áudio responde 502.** Falta a chave do provedor, ela é inválida ou o provedor está indisponível. Confira `GROQ_API_KEY` ou `OPENROUTER_API_KEY` e reinicie o backend.
+**Envio de áudio responde 502.** Falta a chave do provedor, ela é inválida ou o provedor está indisponível. Confira `GROQ_API_KEY` ou `OPENROUTER_API_KEY` e reinicie o backend. Se um administrador escolheu no painel (`/app/admin`, aba "Transcrição") um provedor cuja chave foi removida do `.env` depois, o envio também responde 502 e nada é gravado: preencha a chave de novo ou escolha outro provedor no painel.
+
+**A transcrição de música sai errada.** Os modelos Whisper são feitos para fala. Em músicas, mesmo com o idioma correto, a transcrição pode sair com erros ou trechos faltando. Trocar o modelo no painel pode mudar o resultado, mas não há garantia de que melhore.
 
 ## 12. Divergências conhecidas da especificação
 
@@ -188,7 +197,7 @@ A especificação (`docs/ESPECIFICACAO.md`, seção 12) registra o que mudou em 
 - **Porta do banco 5433, não 5432.** O repositório publica `127.0.0.1:5433` porque o serviço do PostgreSQL do Windows ocupa a 5432 na máquina de desenvolvimento. `DATABASE_PORT` no `.env.example` é `5433`.
 - **PostgreSQL 18** (`postgres:18-alpine`).
 - **Banco com `--env-file`.** O compose lê usuário, senha e nome do banco de `backend/.env`.
-- **Groq ou OpenRouter** para a transcrição, escolhidos por `TRANSCRIPTION_PROVIDER`.
+- **Groq ou OpenRouter** para a transcrição, escolhidos por um administrador no painel (`/app/admin`), não por variável de ambiente.
 
 ## 13. Declaração de uso de IA
 
@@ -199,7 +208,8 @@ Ferramentas de IA foram usadas no **desenvolvimento** do projeto, conforme a se�
 | 1. Infraestrutura e esqueleto do backend | Claude Code (Anthropic) | [confirmar o modelo usado na Etapa 1] |
 | 2 a 9. Backend (usuários, autenticação, transcrição, histórico, administração), frontend (páginas, envio, histórico, administração) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 | 10. Login com Google (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
+| 11. Provedor e modelo de transcrição no painel (especificação, backend e frontend) e README | Claude Code (Anthropic), por meio de agentes (subagentes) do Claude Code | Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
 
-Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. Na Etapa 10, o plano foi proposto e aprovado antes da execução. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
+Como foi usado: a especificação e o `AGENTS.md` serviram de guia para os agentes. O plano da Etapa 2 foi proposto e aprovado antes de qualquer arquivo ser criado. As Etapas 3 a 9 foram executadas em sequência, uma por agente, com a execução autorizada de uma vez, sem aprovação de plano a cada etapa; cada agente rodou os critérios de aceite da sua etapa e fez o commit dela. Na Etapa 10, o plano foi proposto e aprovado antes da execução. O plano da Etapa 11 também foi proposto e aprovado antes da execução. O que os agentes não puderam verificar, o comportamento das telas no navegador, ficou para conferência manual do grupo, assim como a revisão do código.
 
 O **Whisper** (via Groq ou OpenRouter) é usado apenas **em tempo de execução**, para transcrever os áudios enviados à aplicação. Ele não é ferramenta de desenvolvimento.
