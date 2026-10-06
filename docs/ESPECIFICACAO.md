@@ -1,12 +1,12 @@
 # Ditado — Especificação
 
-Versão: 0.3 (acrescenta o login com Google; as diferenças em relação às versões anteriores estão na seção 12)
+Versão: 0.4 (acrescenta a escolha do provedor e do modelo de transcrição no painel do administrador; as diferenças em relação às versões anteriores estão na seção 12)
 
 ## 1. Visão geral
 
 O Ditado é uma aplicação web de transcrição de áudio. O visitante conhece o produto numa página inicial, cria uma conta e, na área interna, envia um arquivo de áudio e recebe o texto transcrito. As transcrições ficam salvas num histórico pessoal. Um administrador gerencia as contas.
 
-A transcrição é feita pelo modelo Whisper, na API da Groq ou do OpenRouter (provedor escolhido por configuração; ver seção 8). A chave do provedor fica somente no backend.
+A transcrição é feita pelo modelo Whisper, na API da Groq ou do OpenRouter (provedor e modelo escolhidos pelo administrador no painel; ver seções 5 e 8). A chave do provedor fica somente no backend.
 
 ## 2. Escopo
 
@@ -19,6 +19,7 @@ Dentro do escopo:
 - Histórico pessoal de transcrições: listar, ler e excluir.
 - Área administrativa: listar contas, alterar nome e papel, desativar conta.
 - Administrador inicial criado por configuração na inicialização.
+- Administrador escolhe, no painel, o provedor e o modelo de transcrição (configuração global).
 - Documentação interativa da API (Swagger) em `/docs`, protegida por autenticação Basic. Acrescentada pelo grupo depois da versão 0.1; não faz parte do contrato da API.
 
 Fora do escopo:
@@ -66,6 +67,16 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 | text | texto longo | transcrição retornada pela Groq |
 | createdAt | data/hora | automático; ordenação do histórico |
 
+### settings
+
+Configuração global da aplicação, uma linha por chave. Hoje só existe a chave `transcription`.
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| key | texto (até 100) | chave primária |
+| value | texto longo | JSON da configuração; para `transcription`: `{ "provider", "model" }`. Nunca contém chaves de API |
+| updatedAt | data/hora | automático |
+
 ## 5. Regras de negócio
 
 - **RN1 — E-mail único:** cadastro com e-mail já existente retorna 409.
@@ -83,6 +94,11 @@ O cadastro público sempre cria papel `user`. O papel `admin` só é atribuído 
 - **RN13 — Vínculo com conta existente:** se o e-mail verificado pelo Google já estiver cadastrado, a conta existente é vinculada ao `googleId` e o login prossegue, sem alterar o papel. Se a conta já estiver vinculada a outro `googleId`, retorna 401.
 - **RN14 — Conta desativada no Google:** login com Google de conta com `active = false` retorna 401, com a mesma mensagem de credenciais inválidas (RN4).
 - **RN15 — Conta sem senha:** conta criada só pelo Google que tentar entrar por `/api/auth/login` recebe 401, com a mesma mensagem de credenciais inválidas (RN4).
+- **RN16 — Configuração global:** o provedor e o modelo de transcrição são uma só configuração para todos os usuários, guardada na tabela `settings`.
+- **RN17 — Quem escolhe:** somente um administrador lê e altera a configuração de transcrição; usuário comum recebe 403.
+- **RN18 — Escolha válida:** só se pode escolher uma combinação provedor + modelo do catálogo fixo da seção 8, e somente se a chave do provedor estiver configurada no servidor. Caso contrário, retorna 400.
+- **RN19 — Padrão:** sem escolha salva, vale o primeiro provedor com chave configurada, na ordem `groq`, `openrouter`, com o modelo padrão `whisper-large-v3-turbo` na Groq e `openai/whisper-large-v3-turbo` no OpenRouter.
+- **RN20 — Escolha indisponível:** se a escolha salva ficar indisponível (a chave do provedor foi removida), o envio de áudio retorna 502 com mensagem de serviço não configurado e nada é gravado (RN9).
 
 ## 6. Contrato da API
 
@@ -131,6 +147,15 @@ Objeto de transcrição: `{ "id", "fileName", "language", "text", "createdAt" }`
 
 Corpo de PATCH: qualquer combinação de `name`, `role` e `active`. Campos fora dessa lista retornam 400.
 
+### Configuração de transcrição (administrador)
+
+| Método | Caminho | Protegida | Sucesso | Erros |
+|---|---|---|---|---|
+| GET | `/api/settings/transcription` | sim, papel `admin` | 200 `{ "provider": "groq" \| "openrouter", "model": string, "source": "default" \| "admin", "options": [{ "provider", "model", "label", "available": boolean }] }` | 401, 403 (papel `user`) |
+| PATCH | `/api/settings/transcription` | sim, papel `admin` | 200 com o mesmo objeto do GET | 400 (campo inválido, combinação fora do catálogo ou provedor sem chave configurada), 401, 403 |
+
+Corpo de PATCH: `{ "provider", "model" }`, ambos obrigatórios. Campo ausente ou extra retorna 400. `source` é `default` quando vale o padrão (RN19) e `admin` quando há escolha salva. `options` é o catálogo da seção 8; `available` é verdadeiro quando a chave do provedor está configurada. Se a escolha salva for de uma combinação que não está disponível, o GET devolve `source` `admin` e a opção correspondente com `available` falso. Nenhuma resposta contém chaves de API.
+
 ### Comportamentos definidos na implementação
 
 Pontos que a versão 0.1 deixava em aberto e que a implementação fixou:
@@ -155,7 +180,7 @@ Todas as respostas de erro têm a forma `{ "statusCode", "message", "error" }`.
 | `/cadastrar` | público | Formulário de nome, e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
 | `/entrar` | público | Formulário de e-mail e senha; botão "Entrar com Google" quando `GET /api/auth/google` retorna o client ID |
 | `/app` | usuário logado | Envio de áudio com escolha de idioma; histórico com ver e excluir |
-| `/app/admin` | papel `admin` | Lista de contas, com alteração de nome, papel e status ativo |
+| `/app/admin` | papel `admin` | Seção "Contas": lista de contas, com alteração de nome, papel e status ativo. Seção "Transcrição": escolha do provedor e do modelo de transcrição |
 
 Regras de tela:
 
@@ -172,16 +197,27 @@ Regras de tela:
 Os nomes das variáveis estão em `.env.example`. Os valores reais ficam em `backend/.env`, que não é versionado.
 
 - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: na inicialização, se não existir nenhum administrador com esse e-mail, a aplicação cria um. Se já existir, não altera nada.
-- `GROQ_API_KEY`: chave pessoal da Groq. Nunca vai para o frontend nem para o repositório.
-- `GROQ_MODEL`: identificador do modelo de transcrição (padrão `whisper-large-v3-turbo`).
-- `TRANSCRIPTION_PROVIDER`: `groq` ou `openrouter`. Se vazio, usa a Groq quando `GROQ_API_KEY` estiver preenchida e, senão, o OpenRouter quando `OPENROUTER_API_KEY` estiver preenchida. Sem chave do provedor escolhido, a aplicação sobe e o envio de áudio retorna 502.
-- `OPENROUTER_API_KEY`: chave pessoal do OpenRouter (alternativa à Groq). Nunca vai para o frontend nem para o repositório.
-- `OPENROUTER_MODEL`: modelo de fala para texto no OpenRouter (padrão `openai/whisper-large-v3-turbo`).
+- `GROQ_API_KEY`: chave pessoal da Groq. Nunca vai para o frontend, para o banco nem para o repositório.
+- `OPENROUTER_API_KEY`: chave pessoal do OpenRouter (alternativa à Groq). Nunca vai para o frontend, para o banco nem para o repositório.
+- Provedor e modelo de transcrição não são mais variáveis de ambiente: o administrador os escolhe no painel (seção 7) e a escolha fica na tabela `settings`. Sem escolha salva vale o padrão da RN19. Sem chave do provedor em uso, a aplicação sobe e o envio de áudio retorna 502.
 - `JWT_SECRET` e `JWT_EXPIRES_IN`: assinatura e validade do token (padrão `1d`).
 - Banco: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`. O padrão de desenvolvimento de `DATABASE_PORT` é `5433` (seção 12). O `docker-compose.yml` lê essas variáveis de `backend/.env`; por isso o banco sobe com `docker compose --env-file backend/.env up -d`.
 - `DOCS_USER` e `DOCS_PASSWORD`: credenciais Basic do Swagger em `/docs`. Se omitidas, o padrão de desenvolvimento é `admin` / `admin`; troque fora do ambiente local.
 - `GOOGLE_CLIENT_ID`: client ID OAuth do Google (público, termina em `.apps.googleusercontent.com`). É usado como `audience` na validação do ID token. Sem ele, `GET /api/auth/google` retorna 404 e `POST /api/auth/google` retorna 401 com mensagem de login com Google não configurado. O client secret não é usado neste fluxo e não deve ficar no repositório.
 - `PORT`: porta do backend (padrão `3000`).
+
+Catálogo fixo de opções de transcrição (a disponibilidade depende da chave do provedor):
+
+| Provedor | Modelo | Rótulo |
+|---|---|---|
+| `groq` | `whisper-large-v3-turbo` | Groq: Whisper Large v3 Turbo |
+| `groq` | `whisper-large-v3` | Groq: Whisper Large v3 |
+| `openrouter` | `openai/whisper-large-v3-turbo` | OpenRouter: Whisper Large v3 Turbo |
+| `openrouter` | `openai/whisper-large-v3` | OpenRouter: Whisper Large v3 |
+| `openrouter` | `openai/whisper-1` | OpenRouter: Whisper 1 |
+| `openrouter` | `fish-audio/transcribe-1-pro` | OpenRouter: Fish Audio Transcribe 1 Pro |
+
+Os ids do OpenRouter foram conferidos na lista pública de modelos de transcrição (`GET https://openrouter.ai/api/v1/models?output_modalities=transcription`). O `fish-audio/transcribe-1-pro` é chamado no mesmo endpoint `/api/v1/audio/transcriptions`, mas com corpo JSON (`input_audio` em base64 e `format`) em vez de multipart; os demais modelos continuam em multipart.
 
 O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativo `/api`.
 
@@ -194,6 +230,7 @@ O frontend não tem arquivo `.env`. Ele chama a API somente pelo caminho relativ
 - Login com Google: o ID token é validado no backend (assinatura, emissor e `audience` igual a `GOOGLE_CLIENT_ID`). Nenhum token do Google é gravado nem registrado em log.
 - Banco: a porta do banco (5433 no host, 5432 no contêiner) publica-se somente em `127.0.0.1`.
 - Logs: as chaves dos provedores (Groq, OpenRouter) e o token nunca aparecem em log.
+- Painel de transcrição: as chaves dos provedores nunca são gravadas no banco nem devolvidas pela API; o painel mostra apenas se cada provedor está disponível.
 - Esquema do banco: `synchronize: true` durante o desenvolvimento. Migrações versionadas ficam para a Aula 08.
 
 ## 10. Plano de etapas
@@ -292,6 +329,18 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
   - A resposta não contém `passwordHash` nem `googleId`.
   - `GET /api/auth/google` retorna 200 com `clientId` quando `GOOGLE_CLIENT_ID` está configurado e 404 quando não está.
 
+### Etapa 11 — Provedor de transcrição no painel
+
+- Entrega: tabela `settings`; `GET` e `PATCH /api/settings/transcription`; envio de áudio passa a usar a escolha salva; remoção de `TRANSCRIPTION_PROVIDER`, `GROQ_MODEL` e `OPENROUTER_MODEL`; modelo `fish-audio/transcribe-1-pro` no catálogo; seção "Transcrição" em `/app/admin`.
+- Aceite:
+  - Usuário com papel `user` recebe 403 no GET e no PATCH; sem token, 401.
+  - Administrador lê o padrão (`source` `default`) com as opções e a disponibilidade de cada uma.
+  - PATCH válido retorna 200, e o GET seguinte mostra a escolha com `source` `admin`.
+  - Combinação fora do catálogo retorna 400; provedor sem chave configurada retorna 400; campo extra ou corpo vazio retorna 400.
+  - O envio de áudio usa o provedor e o modelo salvos; sem escolha salva usa o padrão.
+  - Escolha salva sem chave: o envio retorna 502 e nada é gravado.
+  - Nenhuma resposta contém chaves.
+
 ## 11. Verificação final
 
 - Todas as etapas com critérios de aceite cumpridos e registrados em commits separados.
@@ -300,14 +349,14 @@ Cada etapa termina com um commit que nomeia a etapa. A etapa só é considerada 
 
 ## 12. Divergências em relação às versões anteriores
 
-Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e a versão 0.3, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as demais, da 0.2.
+Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e as versões 0.3 e 0.4, com o motivo. Os valores da coluna "Vale agora" já estão refletidos nas seções acima. As linhas sobre o Google são da versão 0.3; as sobre a configuração de transcrição, da 0.4; as demais, da 0.2.
 
 | Assunto | Versão 0.1 | Vale agora | Motivo |
 |---|---|---|---|
 | Porta do banco no host | 5432 | 5433 (`127.0.0.1:5433->5432/tcp`) | O serviço do PostgreSQL instalado no Windows da máquina de desenvolvimento ocupa a 5432 e não pôde ser parado. O banco continua publicado só em `127.0.0.1`. |
 | Versão do PostgreSQL | 17 | 18 (`postgres:18-alpine`), volume em `/var/lib/postgresql` | Escolha do grupo. |
 | Credenciais do banco no compose | valores fixos | variáveis de `backend/.env`; subir com `--env-file backend/.env` | Evita senha no repositório. O Compose só lê o `.env` da raiz, daí a flag. |
-| Provedor de transcrição | só a Groq | Groq ou OpenRouter, por `TRANSCRIPTION_PROVIDER` | O grupo ainda não tinha chave da Groq e tinha crédito no OpenRouter. O contrato da API não mudou. |
+| Provedor de transcrição | só a Groq | Groq ou OpenRouter, escolhido no painel do administrador (versão 0.4; na 0.2 era por `TRANSCRIPTION_PROVIDER`) | O grupo ainda não tinha chave da Groq e tinha crédito no OpenRouter. O contrato da API não mudou. |
 | Documentação da API | não prevista | Swagger em `/docs` com autenticação Basic | Pedido do grupo. Está fora do contrato da API. |
 | Interface | Tailwind e lucide-react | também shadcn/ui, com identidade visual em `docs/DESIGN.md` | Pedido do grupo: interface padronizada, com tokens de cor e fonte. |
 | Versões da pilha | não fixadas | NestJS 11 (CommonJS), TypeORM 0.3, Jest 29, TypeScript 5.9 no backend; Vite 8, React 19 e Tailwind 4 no frontend | NestJS 12 é só ESM e quebra o Jest e a CLI no Node 22.14. |
@@ -316,6 +365,9 @@ Registro do que mudou entre o rascunho (0.1), a revisão 0.2 e a versão 0.3, co
 | Login com Google | fora do escopo | dentro do escopo (Etapa 10), com ID token validado no backend | Pedido do grupo, para entrar sem criar senha. Usa só o client ID, sem client secret. |
 | `passwordHash` | obrigatório | opcional (nulo para conta só do Google); novo campo `googleId` | Conta criada pelo Google não tem senha. |
 | `GOOGLE_CLIENT_ID` | não existia | variável de configuração; público | Define a `audience` do ID token e é entregue ao frontend por `GET /api/auth/google`. |
+| `TRANSCRIPTION_PROVIDER`, `GROQ_MODEL`, `OPENROUTER_MODEL` | variáveis de ambiente | removidas; valem as escolhas do painel, com padrão na RN19 | Trocar de provedor ou modelo não deve exigir editar o `.env` e reiniciar. Linhas antigas no `.env` ficam sem efeito. |
+| Configuração de transcrição | por instalação, no `.env` | global, no banco (tabela `settings`), alterada só por administrador | Uma escolha única para todos os usuários, feita pelo site. As chaves continuam só no `.env`. |
+| Modelo `fish-audio/transcribe-1-pro` | não existia | opção do catálogo no OpenRouter, chamada por JSON com `input_audio` | Pedido do grupo. O modelo existe na lista pública do OpenRouter. |
 
 Pontos que a especificação continua sem decidir:
 
